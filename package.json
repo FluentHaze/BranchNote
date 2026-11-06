@@ -11,6 +11,9 @@
     "build": "tsc --noEmit && vite build",
     "start": "npm run build && electron .",
     "test": "tsx --test tests/*.test.ts",
+    "test:e2e": "node scripts/e2e.cjs",
+    "test:ui": "node scripts/ui-test.cjs",
+    "test:stage": "node scripts/ui-stage-test.cjs",
     "pack:win": "npm run build && electron-builder --win nsis",
     "pack:mac": "npm run build && electron-builder --mac dmg"
   },

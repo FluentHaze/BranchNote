@@ -1,14 +1,6 @@
 import { useState, type FormEvent } from "react";
 import { Trash2 } from "lucide-react";
-import {
-  id,
-  now,
-  updateTarget,
-  type Batch,
-  type Branch,
-  type Project,
-  type Store,
-} from "./model";
+import { id, now, type Branch, type Project, type Store } from "./model";
 import Modal from "./Modal";
 import Select from "./Select";
 import RepositoryPicker from "./RepositoryPicker";
@@ -24,8 +16,7 @@ const colors = [
 
 export type Editor =
   | { kind: "branch"; value?: Branch }
-  | { kind: "project"; value?: Project }
-  | { kind: "batch"; value?: Batch };
+  | { kind: "project"; value?: Project };
 export default function EditorForm({
   editor,
   store,
@@ -64,11 +55,10 @@ export default function EditorForm({
           (b) =>
             b.projectId === projectId &&
             b.name === name &&
-            !b.released &&
             b.id !== value?.id,
         )
       ) {
-        setError("该项目已有同名未上线分支，请先检查现有记录");
+        setError("该项目已有同名分支，请先检查现有记录");
         return;
       }
       const timestamp = now();
@@ -76,22 +66,24 @@ export default function EditorForm({
       const branch: Branch = {
         ...(previous || {
           id: id(),
-          tested: false,
-          released: false,
-          releasedAt: null,
+          // 合并状态由「提交到测试/发布分支」写入，手工新建时都是待合并
+          testMergedAt: null,
+          releaseMergedAt: null,
           createdAt: timestamp,
         }),
         projectId,
         name,
         description,
         note: text("note"),
-        batchId: text("batchId"),
         updatedAt: timestamp,
-        mergedAt:
-          previous &&
-          previous.projectId === projectId &&
-          previous.batchId === text("batchId")
-            ? previous.mergedAt
+        // 换项目后原来的合并记录不再成立
+        testMergedAt:
+          previous && previous.projectId === projectId
+            ? previous.testMergedAt
+            : null,
+        releaseMergedAt:
+          previous && previous.projectId === projectId
+            ? previous.releaseMergedAt
             : null,
       };
       next = {
@@ -100,47 +92,28 @@ export default function EditorForm({
           ? store.branches.map((b) => (b.id === previous.id ? branch : b))
           : [...store.branches, branch],
       };
-    } else if (editor.kind === "project") {
-      if (store.projects.some((p) => p.name === name && p.id !== value?.id)) {
+    } else {
+      const current = editor.kind === "project" ? editor.value : undefined;
+      if (store.projects.some((p) => p.name === name && p.id !== current?.id)) {
         setError("项目名称已存在");
         return;
       }
       const project: Project = {
-        id: value?.id || id(),
+        id: current?.id || id(),
         name,
         note: text("note"),
         color: text("color"),
-        archived: editor.value?.archived || false,
+        archived: current?.archived || false,
         repositoryPath: text("repositoryPath") || undefined,
+        testTarget: current?.testTarget,
+        releaseTarget: current?.releaseTarget,
       };
       next = {
         ...store,
-        projects: value
-          ? store.projects.map((p) => (p.id === value.id ? project : p))
+        projects: current
+          ? store.projects.map((p) => (p.id === current.id ? project : p))
           : [...store.projects, project],
       };
-    } else {
-      const batch: Batch = {
-        id: value?.id || id(),
-        name,
-        date: text("date"),
-        note: text("note"),
-        completed: editor.value?.completed || false,
-        targets: editor.value?.targets || {},
-      };
-      next = {
-        ...store,
-        batches: value
-          ? store.batches.map((b) => (b.id === value.id ? batch : b))
-          : [...store.batches, batch],
-      };
-      for (const project of store.projects)
-        next = updateTarget(
-          next,
-          batch.id,
-          project.id,
-          text(`target-${project.id}`),
-        );
     }
     setBusy(true);
     if (await submit(next)) close();
@@ -151,7 +124,7 @@ export default function EditorForm({
   }
   return (
     <Modal
-      title={`${value ? "编辑" : "新建"}${editor.kind === "branch" ? "分支记录" : editor.kind === "project" ? "项目" : "发布批次"}`}
+      title={`${value ? "编辑" : "新建"}${editor.kind === "branch" ? "分支记录" : "项目"}`}
       close={close}
     >
       <form onSubmit={onSubmit} className="form">
@@ -165,7 +138,6 @@ export default function EditorForm({
                 editor.value?.projectId ||
                 store.projects.find((p) => !p.archived)?.id
               }
-              disabled={editor.value?.released}
               options={store.projects
                 .filter((p) => !p.archived || p.id === editor.value?.projectId)
                 .map((p) => ({
@@ -176,11 +148,7 @@ export default function EditorForm({
           </label>
         )}
         <label>
-          {editor.kind === "branch"
-            ? "分支名称"
-            : editor.kind === "project"
-              ? "项目名称"
-              : "批次名称"}
+          {editor.kind === "branch" ? "分支名称" : "项目名称"}
           <input
             name="name"
             autoFocus
@@ -188,11 +156,7 @@ export default function EditorForm({
             maxLength={200}
             defaultValue={value?.name}
             placeholder={
-              editor.kind === "branch"
-                ? "feature/your-next-idea"
-                : editor.kind === "project"
-                  ? "例如：主项目"
-                  : "例如：第 46 周发布"
+              editor.kind === "branch" ? "feature/your-next-idea" : "例如：主项目"
             }
           />
         </label>
@@ -208,26 +172,11 @@ export default function EditorForm({
                 placeholder="这个分支实现了什么？"
               />
             </label>
-            <label>
-              计划发布批次
-              <Select
-                label="计划发布批次"
-                name="batchId"
-                defaultValue={editor.value?.batchId || ""}
-                disabled={editor.value?.released}
-                options={[
-                  { value: "", label: "待安排" },
-                  ...store.batches
-                    .filter(
-                      (b) => !b.completed || b.id === editor.value?.batchId,
-                    )
-                    .map((b) => ({ value: b.id, label: b.name })),
-                ]}
-              />
-            </label>
-            {editor.value?.mergedAt && (
+            {(editor.value?.testMergedAt || editor.value?.releaseMergedAt) && (
               <p className="field-hint">
-                更改项目或发布批次后，需要重新确认合入发布分支。
+                这个分支已经合并过
+                {editor.value?.releaseTarget || editor.value?.testTarget || "目标分支"}
+                ，改项目后需要重新合并。
               </p>
             )}
           </>
@@ -254,36 +203,6 @@ export default function EditorForm({
               </label>
             ))}
           </fieldset>
-        )}
-        {editor.kind === "batch" && (
-          <>
-            <label>
-              计划发布日期
-              <input
-                type="date"
-                name="date"
-                defaultValue={editor.value?.date}
-              />
-            </label>
-            <div className="target-fields">
-              <h3>各项目的发布分支</h3>
-              <p className="field-hint">
-                调整目标分支后，未上线记录需要重新确认合并。
-              </p>
-              {store.projects
-                .filter((p) => !p.archived || editor.value?.targets[p.id])
-                .map((p) => (
-                  <label key={p.id}>
-                    {p.name}
-                    <input
-                      name={`target-${p.id}`}
-                      defaultValue={editor.value?.targets[p.id] || ""}
-                      placeholder="例如：release/week-46"
-                    />
-                  </label>
-                ))}
-            </div>
-          </>
         )}
         <label>
           备注 <span className="optional">选填</span>

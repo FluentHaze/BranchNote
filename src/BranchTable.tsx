@@ -1,13 +1,17 @@
+import { useEffect, useState } from "react";
 import {
   Circle,
   CircleCheck,
   Copy,
+  FlaskConical,
   GitBranch,
+  GitMerge,
   MoreHorizontal,
+  Pencil,
+  Trash2,
 } from "lucide-react";
-import { moveBranch, type Store, type Branch } from "./model";
+import type { Store, Branch, Stage } from "./model";
 import type { Editor } from "./EditorForm";
-import Select from "./Select";
 
 interface Props {
   store: Store;
@@ -16,14 +20,18 @@ interface Props {
   busy: boolean;
   setSelected(ids: string[]): void;
   setEditor(editor: Editor): void;
-  navigate(view: { kind: "project"; id: string }): void;
   copy(text: string): Promise<void>;
-  toggle(
-    branch: Branch,
-    field: "tested" | "mergedAt" | "released",
-  ): Promise<void>;
-  commit(store: Store): Promise<boolean>;
+  submit(branchIds: string[], stage: Stage): void;
+  toggleMerged(branch: Branch, stage: Stage): Promise<void>;
+  remove(branch: Branch): void;
 }
+const formatTime = (value: string) =>
+  new Date(value).toLocaleString("zh-CN", {
+    month: "numeric",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 export default function BranchTable({
   store,
   visible,
@@ -31,50 +39,59 @@ export default function BranchTable({
   busy,
   setSelected,
   setEditor,
-  navigate,
   copy,
-  toggle,
-  commit,
+  submit,
+  toggleMerged,
+  remove,
 }: Props) {
+  // 「更多」菜单：用视口坐标固定定位，避免被表格的滚动容器裁切
+  const [menu, setMenu] = useState<{
+    branch: Branch;
+    top: number;
+    right: number;
+  } | null>(null);
+  useEffect(() => {
+    if (!menu) return;
+    const close = () => setMenu(null);
+    document.addEventListener("scroll", close, true);
+    window.addEventListener("resize", close);
+    return () => {
+      document.removeEventListener("scroll", close, true);
+      window.removeEventListener("resize", close);
+    };
+  }, [menu]);
   return (
-    <div className="table-scroll">
-      <table>
+    <>
+      <div className="table-scroll">
+        <table>
         <thead>
           <tr>
             <th className="select-cell">
               <input
                 type="checkbox"
-                aria-label="选择当前列表的全部未上线分支"
+                aria-label="选择当前列表的全部分支"
                 checked={
-                  visible.some((b) => !b.released) &&
-                  visible
-                    .filter((b) => !b.released)
-                    .every((b) => selected.includes(b.id))
+                  visible.length > 0 &&
+                  visible.every((b) => selected.includes(b.id))
                 }
                 onChange={(e) =>
-                  setSelected(
-                    e.target.checked
-                      ? visible.filter((b) => !b.released).map((b) => b.id)
-                      : [],
-                  )
+                  setSelected(e.target.checked ? visible.map((b) => b.id) : [])
                 }
               />
             </th>
-            <th>分支与功能说明</th>
-            <th>项目</th>
-            <th>部署测试</th>
-            <th>合入发布分支</th>
-            <th>上线状态</th>
-            <th>发布批次</th>
+            <th>分支与备注</th>
+            <th>测试分支</th>
+            <th>发布分支</th>
             <th className="action-cell">
-              <span className="sr-only">操作</span>
+              <span>操作</span>
             </th>
           </tr>
         </thead>
         <tbody>
           {visible.map((branch) => {
             const p = store.projects.find((p) => p.id === branch.projectId)!;
-            const b = store.batches.find((b) => b.id === branch.batchId);
+            const testTarget = branch.testTarget || p.testTarget || "";
+            const releaseTarget = branch.releaseTarget || p.releaseTarget || "";
             return (
               <tr
                 key={branch.id}
@@ -84,8 +101,7 @@ export default function BranchTable({
                   <input
                     type="checkbox"
                     aria-label={`选择 ${branch.name}`}
-                    disabled={branch.released}
-                    checked={selected.includes(branch.id) && !branch.released}
+                    checked={selected.includes(branch.id)}
                     onChange={(e) =>
                       setSelected(
                         e.target.checked
@@ -100,12 +116,7 @@ export default function BranchTable({
                     <GitBranch size={15} />
                     <button
                       title={branch.name}
-                      onClick={() =>
-                        setEditor({
-                          kind: "branch",
-                          value: branch,
-                        })
-                      }
+                      onClick={() => setEditor({ kind: "branch", value: branch })}
                     >
                       {branch.name}
                     </button>
@@ -117,110 +128,148 @@ export default function BranchTable({
                       <Copy size={13} />
                     </button>
                   </div>
-                  <p title={branch.description}>{branch.description}</p>
+                  {branch.description && (
+                    <p className="branch-note" title={branch.description}>
+                      {branch.description}
+                    </p>
+                  )}
                 </td>
                 <td>
                   <button
-                    className="project-pill"
-                    onClick={() => navigate({ kind: "project", id: p.id })}
-                  >
-                    <span style={{ background: p.color }} />
-                    {p.name}
-                  </button>
-                </td>
-                <td>
-                  <button
-                    className={`status ${branch.tested ? "done" : ""}`}
+                    className={`status ${branch.testMergedAt ? "done" : ""}`}
                     disabled={busy}
-                    aria-pressed={branch.tested}
-                    onClick={() => toggle(branch, "tested")}
-                    title="手动切换部署测试状态"
-                  >
-                    {branch.tested ? (
-                      <CircleCheck size={15} />
-                    ) : (
-                      <Circle size={15} />
-                    )}
-                    {branch.tested ? "已部署测试" : "待部署测试"}
-                  </button>
-                </td>
-                <td>
-                  <button
-                    className={`status ${branch.mergedAt ? "done" : ""}`}
-                    disabled={busy || branch.released}
-                    aria-pressed={!!branch.mergedAt}
-                    onClick={() => toggle(branch, "mergedAt")}
+                    aria-pressed={!!branch.testMergedAt}
+                    onClick={() => void toggleMerged(branch, "test")}
                     title={
-                      branch.mergedAt
-                        ? `合入 ${b?.targets[p.id]} · ${new Date(branch.mergedAt).toLocaleString("zh-CN")}`
-                        : "确认已合入当前目标发布分支"
+                      branch.testMergedAt
+                        ? `已合入 ${testTarget || "测试分支"} · ${formatTime(branch.testMergedAt)}\n分支有新修改？点击重新标记为待合并（发布列会一起重置）`
+                        : "点击手动标记为已合入测试分支"
                     }
                   >
-                    {branch.mergedAt ? (
+                    {branch.testMergedAt ? (
                       <CircleCheck size={15} />
                     ) : (
                       <Circle size={15} />
                     )}
-                    {branch.mergedAt ? "已合入发布分支" : "待合并"}
+                    {branch.testMergedAt ? "已合并" : "未合并"}
                   </button>
+                  {branch.testMergedAt && testTarget && (
+                    <span className="status-target" title={testTarget}>
+                      {testTarget}
+                    </span>
+                  )}
                 </td>
                 <td>
                   <button
-                    className={`status ${branch.released ? "done" : "release-status"}`}
+                    className={`status ${branch.releaseMergedAt ? "done" : ""}`}
                     disabled={busy}
-                    aria-pressed={branch.released}
-                    onClick={() => toggle(branch, "released")}
-                    title={branch.released ? "点击撤销上线确认" : "确认上线"}
+                    aria-pressed={!!branch.releaseMergedAt}
+                    onClick={() => void toggleMerged(branch, "release")}
+                    title={
+                      branch.releaseMergedAt
+                        ? `已合入 ${releaseTarget || "发布分支"} · ${formatTime(branch.releaseMergedAt)}\n分支有新修改？点击重新标记为待合并`
+                        : "点「提交发布」后会写回这里；也可以直接点这里手动标记"
+                    }
                   >
-                    {branch.released ? (
+                    {branch.releaseMergedAt ? (
                       <CircleCheck size={15} />
                     ) : (
                       <Circle size={15} />
                     )}
-                    {branch.released ? "已上线" : "未上线"}
+                    {branch.releaseMergedAt ? "已合并" : "未合并"}
                   </button>
-                </td>
-                <td>
-                  <Select
-                    className="batch-select"
-                    label={`${branch.name} 的发布批次`}
-                    value={branch.batchId}
-                    disabled={busy || branch.released}
-                    onChange={(batchId) => {
-                      void commit({
-                        ...store,
-                        branches: store.branches.map((item) =>
-                          item.id === branch.id
-                            ? moveBranch(item, batchId)
-                            : item,
-                        ),
-                      });
-                    }}
-                    options={[
-                      { value: "", label: "待安排" },
-                      ...store.batches
-                        .filter(
-                          (item) =>
-                            !item.completed || item.id === branch.batchId,
-                        )
-                        .map((item) => ({ value: item.id, label: item.name })),
-                    ]}
-                  />
+                  {branch.releaseMergedAt && releaseTarget && (
+                    <span className="status-target" title={releaseTarget}>
+                      {releaseTarget}
+                    </span>
+                  )}
                 </td>
                 <td className="action-cell">
-                  <button
-                    className="icon-button"
-                    aria-label={`编辑 ${branch.name}`}
-                    onClick={() => setEditor({ kind: "branch", value: branch })}
-                  >
-                    <MoreHorizontal size={18} />
-                  </button>
+                  <div className="row-actions">
+                    <button
+                      className="action-pill test"
+                      aria-label={`提交 ${branch.name} 到测试分支`}
+                      title={`合并到 ${testTarget || "测试分支"}${branch.testMergedAt ? "（分支有新修改时可再提交一次）" : ""}`}
+                      disabled={busy}
+                      onClick={() => submit([branch.id], "test")}
+                    >
+                      <FlaskConical size={14} />
+                      提交测试
+                    </button>
+                    <button
+                      className="action-pill release"
+                      aria-label={`提交 ${branch.name} 到发布分支`}
+                      title={`合并到 ${releaseTarget || "发布分支"}${branch.releaseMergedAt ? "（分支有新修改时可再提交一次）" : ""}`}
+                      disabled={busy}
+                      onClick={() => submit([branch.id], "release")}
+                    >
+                      <GitMerge size={14} />
+                      提交发布
+                    </button>
+                    <div className="row-more">
+                      <button
+                        className="icon-button"
+                        aria-label={`更多操作 ${branch.name}`}
+                        aria-haspopup="menu"
+                        aria-expanded={menu?.branch.id === branch.id}
+                        title="更多：编辑备注 / 删除记录"
+                        onClick={(event) => {
+                          if (menu?.branch.id === branch.id) {
+                            setMenu(null);
+                            return;
+                          }
+                          const rect =
+                            event.currentTarget.getBoundingClientRect();
+                          setMenu({
+                            branch,
+                            top: rect.bottom + 6,
+                            right: window.innerWidth - rect.right,
+                          });
+                        }}
+                      >
+                        <MoreHorizontal size={18} />
+                      </button>
+                    </div>
+                  </div>
                 </td>
               </tr>
             );
           })}
         </tbody>
-      </table>
-    </div>
+        </table>
+      </div>
+      {menu && (
+        <>
+          <div className="menu-backdrop" onClick={() => setMenu(null)} />
+          <div
+            className="row-menu"
+            role="menu"
+            style={{ top: menu.top, right: menu.right }}
+          >
+            <button
+              role="menuitem"
+              onClick={() => {
+                setEditor({ kind: "branch", value: menu.branch });
+                setMenu(null);
+              }}
+            >
+              <Pencil size={14} />
+              编辑备注
+            </button>
+            <button
+              role="menuitem"
+              className="danger"
+              onClick={() => {
+                remove(menu.branch);
+                setMenu(null);
+              }}
+            >
+              <Trash2 size={14} />
+              删除记录
+            </button>
+          </div>
+        </>
+      )}
+    </>
   );
 }

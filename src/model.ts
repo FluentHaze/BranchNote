@@ -5,14 +5,12 @@ export interface Project {
   color: string;
   archived: boolean;
   repositoryPath?: string;
-}
-export interface Batch {
-  id: string;
-  name: string;
-  date: string;
-  note: string;
-  completed: boolean;
-  targets: Record<string, string>;
+  // 两个阶段各自记住上次用过的分支，避免每次重新挑
+  testTarget?: string;
+  releaseTarget?: string;
+  // 目标分支受保护（平台禁止直接推送）时，合并自动改为：集成分支 + MR
+  testProtected?: boolean;
+  releaseProtected?: boolean;
 }
 export interface Branch {
   id: string;
@@ -20,83 +18,141 @@ export interface Branch {
   name: string;
   description: string;
   note: string;
-  tested: boolean;
-  released: boolean;
-  batchId: string;
-  mergedAt: string | null;
-  releasedAt: string | null;
+  // 最近一次合入的测试分支与时间；分支后续有修改时可以重置为待合并
+  testTarget?: string;
+  testMergedAt: string | null;
+  // 最近一次合入的发布分支与时间
+  releaseTarget?: string;
+  releaseMergedAt: string | null;
   createdAt: string;
   updatedAt: string;
 }
 export interface Store {
-  version: 1;
+  version: 3;
   projects: Project[];
-  batches: Batch[];
   branches: Branch[];
 }
 export const blankStore = (): Store => ({
-  version: 1,
+  version: 3,
   projects: [],
-  batches: [],
   branches: [],
 });
 export const now = () => new Date().toISOString();
 export const id = () => crypto.randomUUID();
 
-export function moveBranch(branch: Branch, batchId: string): Branch {
-  return {
-    ...branch,
-    batchId,
-    mergedAt: branch.batchId === batchId ? branch.mergedAt : null,
-    updatedAt: now(),
-  };
+// 周编号用于默认聚合分支名（release/week-XX）
+export function weekNumber(date = new Date()): number {
+  const start = new Date(date.getFullYear(), 0, 1);
+  return Math.ceil(
+    ((date.getTime() - start.getTime()) / 86400000 + start.getDay() + 1) / 7,
+  );
+}
+// 用本地日期，避免东八区凌晨按 UTC 取到前一天
+export const dateOnly = (date = new Date()) =>
+  `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+
+export type Stage = "test" | "release";
+
+// 两个阶段各自记住上次用过的分支：测试分支通常是 test/qa，发布分支通常是 release/week-XX
+// resolve/** 只是冲突处理时的临时分支，不作为下次的默认目标
+export function rememberedTarget(project: Project, stage: Stage): string {
+  const value = (stage === "test" ? project.testTarget : project.releaseTarget) || "";
+  return value.startsWith("resolve/") ? "" : value;
+}
+export function withTarget(
+  project: Project,
+  stage: Stage,
+  target: string,
+): Project {
+  const value = target.trim();
+  return stage === "test"
+    ? { ...project, testTarget: value }
+    : { ...project, releaseTarget: value };
 }
 
-export function updateTarget(
+// 合并完成后的台账写回：按阶段记下目标分支与本次合入时间
+export function markMerged(
   store: Store,
-  batchId: string,
   projectId: string,
+  names: string[],
+  stage: Stage,
   target: string,
+  when = new Date(),
 ): Store {
-  const batch = store.batches.find((item) => item.id === batchId)!;
-  if ((batch.targets[projectId] || "") === target) return store;
+  const timestamp = when.toISOString();
+  const destination = target.trim();
+  const targets = new Set(names);
   return {
     ...store,
-    batches: store.batches.map((item) =>
-      item.id === batchId
-        ? { ...item, targets: { ...item.targets, [projectId]: target } }
-        : item,
-    ),
-    branches: store.branches.map((item) =>
-      item.batchId === batchId && item.projectId === projectId && !item.released
-        ? { ...item, mergedAt: null, updatedAt: now() }
-        : item,
+    branches: store.branches.map((branch) =>
+      branch.projectId === projectId && targets.has(branch.name)
+        ? {
+            ...branch,
+            ...(stage === "test"
+              ? {
+                  testMergedAt: timestamp,
+                  testTarget: destination || branch.testTarget,
+                }
+              : {
+                  releaseMergedAt: timestamp,
+                  releaseTarget: destination || branch.releaseTarget,
+                }),
+            updatedAt: timestamp,
+          }
+        : branch,
     ),
   };
 }
 
-export function releaseChecklist(store: Store, batchId: string): string {
-  const batch = store.batches.find((item) => item.id === batchId)!;
-  return [
-    batch.name,
-    batch.date ? `计划发布日期：${batch.date}` : "",
-    ...store.projects.flatMap((project) => {
-      const branches = store.branches.filter(
-        (item) => item.batchId === batchId && item.projectId === project.id,
-      );
-      return branches.length
-        ? [
-            `\n${project.name} → ${batch.targets[project.id] || "未填写发布分支"}`,
-            ...branches.map(
-              (item) =>
-                `- ${item.name}：${item.description}\n  ${item.tested ? "已部署测试" : "未部署测试"} / ${item.mergedAt ? "已合入发布分支" : "未合入发布分支"} / ${item.released ? "已上线" : "未上线"}`,
-            ),
-          ]
-        : [];
-    }),
-  ]
-    .filter(Boolean)
-    .join("\n");
+// 列表里的手动标记：把某个阶段标成已合并（沿用已记录的目标分支）
+export function markStageMerged(
+  store: Store,
+  branchId: string,
+  stage: Stage,
+  when = new Date(),
+): Store {
+  const timestamp = when.toISOString();
+  return {
+    ...store,
+    branches: store.branches.map((branch) =>
+      branch.id === branchId
+        ? {
+            ...branch,
+            ...(stage === "test"
+              ? { testMergedAt: timestamp }
+              : { releaseMergedAt: timestamp }),
+            updatedAt: timestamp,
+          }
+        : branch,
+    ),
+  };
+}
+
+// 分支有了新修改：重置对应阶段的合并状态，回到待合并
+export function markModified(
+  store: Store,
+  branchId: string,
+  stage: Stage | "both" = "both",
+  when = new Date(),
+): Store {
+  const timestamp = when.toISOString();
+  return {
+    ...store,
+    branches: store.branches.map((branch) =>
+      branch.id === branchId
+        ? {
+            ...branch,
+            ...(stage === "test" || stage === "both"
+              ? { testMergedAt: null }
+              : {}),
+            ...(stage === "release" || stage === "both"
+              ? { releaseMergedAt: null }
+              : {}),
+            updatedAt: timestamp,
+          }
+        : branch,
+    ),
+  };
 }
 
 function object(value: unknown): value is Record<string, unknown> {
@@ -111,18 +167,25 @@ function strings<K extends string>(
 function validTime(value: unknown): boolean {
   return typeof value === "string" && Number.isFinite(Date.parse(value));
 }
+function optionalTime(value: unknown): boolean {
+  return value === undefined || value === null || validTime(value);
+}
+function optionalTarget(value: unknown): boolean {
+  return value === undefined || (typeof value === "string" && value.trim() !== "");
+}
 
 // All imported/persisted data enters through this boundary. Internal code uses Store directly.
+// v1 备份带 batches/batchId/上线字段，v2 带 testAt/mergedAt/releaseTarget；
+// 读取时统一迁移成 v3 的双合并状态：testAt→testMergedAt，mergedAt→releaseMergedAt。
 export function parseStore(raw: string): Store {
   const value: unknown = JSON.parse(raw);
   if (
     !object(value) ||
-    value.version !== 1 ||
+    ![1, 2, 3].includes(value.version as number) ||
     !Array.isArray(value.projects) ||
-    !Array.isArray(value.batches) ||
     !Array.isArray(value.branches)
   )
-    throw new Error("不是有效的 BranchNote v1 备份");
+    throw new Error("不是有效的 BranchNote 备份");
   if (
     !value.projects.every(
       (p) =>
@@ -132,47 +195,74 @@ export function parseStore(raw: string): Store {
         /^#[0-9a-f]{6}$/i.test(p.color as string) &&
         typeof p.archived === "boolean" &&
         (p.repositoryPath === undefined ||
-          typeof p.repositoryPath === "string"),
+          typeof p.repositoryPath === "string") &&
+        (p.testTarget === undefined || typeof p.testTarget === "string") &&
+        (p.releaseTarget === undefined || typeof p.releaseTarget === "string") &&
+        (p.testProtected === undefined || typeof p.testProtected === "boolean") &&
+        (p.releaseProtected === undefined ||
+          typeof p.releaseProtected === "boolean"),
     )
   )
     throw new Error("项目数据格式错误");
   if (
-    !value.batches.every(
-      (b) =>
-        object(b) &&
-        strings(b, ["id", "name", "date", "note"]) &&
-        b.name.trim() &&
-        typeof b.completed === "boolean" &&
-        object(b.targets) &&
-        Object.values(b.targets).every((t) => typeof t === "string"),
-    )
-  )
-    throw new Error("发布批次格式错误");
-  if (
     !value.branches.every(
       (b) =>
         object(b) &&
-        strings(b, [
-          "id",
-          "projectId",
-          "name",
-          "description",
-          "note",
-          "batchId",
-        ]) &&
+        strings(b, ["id", "projectId", "name", "description", "note"]) &&
         b.name.trim() &&
         b.description.trim() &&
-        typeof b.tested === "boolean" &&
-        typeof b.released === "boolean" &&
         validTime(b.createdAt) &&
         validTime(b.updatedAt) &&
-        (b.mergedAt === null || validTime(b.mergedAt)) &&
-        (b.releasedAt === null || validTime(b.releasedAt)),
+        optionalTime(b.testMergedAt) &&
+        optionalTime(b.releaseMergedAt) &&
+        optionalTarget(b.testTarget) &&
+        optionalTarget(b.releaseTarget) &&
+        // v1/v2 的字段也按原样校验，迁移时丢弃不兼容的部分
+        (b.mergedAt === undefined || optionalTime(b.mergedAt)) &&
+        (b.testAt === undefined || optionalTime(b.testAt)) &&
+        (b.releaseTarget === undefined || optionalTarget(b.releaseTarget)),
     )
   )
     throw new Error("分支数据格式错误");
-  const store = value as unknown as Store;
-  for (const list of [store.projects, store.batches, store.branches]) {
+  const source = value as unknown as {
+    version: number;
+    projects: Project[];
+    branches: Record<string, unknown>[];
+  };
+  const store: Store = {
+    version: 3,
+    projects: source.projects.map((item) => {
+      // 旧数据里的 branchLabels（已废弃，只保留分支备注）在读取时丢弃
+      const { branchLabels: _legacy, ...rest } = item as Project & {
+        branchLabels?: unknown;
+      };
+      return rest as Project;
+    }),
+    branches: source.branches.map((branch) => ({
+      id: branch.id as string,
+      projectId: branch.projectId as string,
+      name: branch.name as string,
+      description: branch.description as string,
+      note: branch.note as string,
+      testTarget: optionalTarget(branch.testTarget)
+        ? (branch.testTarget as string | undefined)
+        : undefined,
+      testMergedAt:
+        (branch.testMergedAt as string | null | undefined) ??
+        (branch.testAt as string | null | undefined) ??
+        null,
+      releaseTarget: optionalTarget(branch.releaseTarget)
+        ? (branch.releaseTarget as string | undefined)
+        : undefined,
+      releaseMergedAt:
+        (branch.releaseMergedAt as string | null | undefined) ??
+        (branch.mergedAt as string | null | undefined) ??
+        null,
+      createdAt: branch.createdAt as string,
+      updatedAt: branch.updatedAt as string,
+    })),
+  };
+  for (const list of [store.projects, store.branches]) {
     if (
       new Set(list.map((item) => item.id)).size !== list.length ||
       list.some((item) => !item.id)
@@ -181,169 +271,9 @@ export function parseStore(raw: string): Store {
   }
   if (
     store.branches.some(
-      (b) =>
-        !store.projects.some((p) => p.id === b.projectId) ||
-        (b.batchId && !store.batches.some((batch) => batch.id === b.batchId)),
+      (b) => !store.projects.some((p) => p.id === b.projectId),
     )
   )
-    throw new Error("分支引用的项目或批次不存在");
-  if (
-    store.branches.some(
-      (b) =>
-        b.mergedAt &&
-        (!b.batchId ||
-          !store.batches
-            .find((batch) => batch.id === b.batchId)
-            ?.targets[b.projectId]?.trim()),
-    )
-  )
-    throw new Error("合并记录缺少目标发布分支");
-  if (
-    store.batches.some(
-      (batch) =>
-        batch.completed &&
-        store.branches.some((b) => b.batchId === batch.id && !b.released),
-    )
-  )
-    throw new Error("已完成批次包含未上线分支");
+    throw new Error("分支引用的项目不存在");
   return store;
-}
-
-export interface ImportRow {
-  project: string;
-  name: string;
-  description: string;
-  note: string;
-  include: boolean;
-}
-export function parseTxt(raw: string): ImportRow[] {
-  let project = "";
-  return raw.split(/\r?\n/).flatMap((line) => {
-    const text = line.trim();
-    if (!text) return [];
-    if (/^\[.+\]$/.test(text) || /^项目[：:]/.test(text)) {
-      project = text.startsWith("[")
-        ? text.slice(1, -1)
-        : text.replace(/^项目[：:]\s*/, "");
-      return [];
-    }
-    const match = text.match(/^([^\s]+\/[^\s]+)\s+(.+)$/);
-    return [
-      {
-        project,
-        name: match?.[1] || "",
-        description: match?.[2] || "",
-        note: match
-          ? /已发|已上线|已合并|已提测/.test(text)
-            ? `原始内容（状态待确认）：${text}`
-            : ""
-          : `未识别内容：${text}`,
-        include: true,
-      },
-    ];
-  });
-}
-
-export function demoStore(): Store {
-  const time = now();
-  const projects: Project[] = [
-    {
-      id: "main",
-      name: "主项目",
-      note: "核心产品与用户体验",
-      color: "#007aff",
-      archived: false,
-    },
-    {
-      id: "activity",
-      name: "活动项目",
-      note: "运营活动与任务系统",
-      color: "#af52de",
-      archived: false,
-    },
-    {
-      id: "landing",
-      name: "落地页",
-      note: "增长与渠道归因",
-      color: "#e58b20",
-      archived: false,
-    },
-  ];
-  const batches: Batch[] = [
-    {
-      id: "week45",
-      name: "第 45 周发布",
-      date: "2026-11-06",
-      note: "周五常规发布，上线前确认测试结果。",
-      completed: false,
-      targets: {
-        main: "release/week-45",
-        activity: "release/week-45",
-        landing: "main",
-      },
-    },
-  ];
-  const entries = [
-    [
-      "main",
-      "feature/pwa-task",
-      "PWA 任务入口与安装引导",
-      true,
-      true,
-      "week45",
-    ],
-    [
-      "main",
-      "fix/provider-games",
-      "修复厂商游戏列表筛选",
-      true,
-      false,
-      "week45",
-    ],
-    [
-      "activity",
-      "feature/task-carousel",
-      "任务卡片轮播与奖励领取",
-      true,
-      true,
-      "week45",
-    ],
-    [
-      "activity",
-      "fix/reward-refresh",
-      "领取奖励后刷新任务状态",
-      false,
-      false,
-      "week45",
-    ],
-    [
-      "landing",
-      "feature/adjust-tracking",
-      "支持渠道归因参数透传",
-      true,
-      false,
-      "week45",
-    ],
-    ["main", "feature/profile", "个人资料页体验优化", false, false, ""],
-    ["activity", "feature/check-in", "连续签到活动", false, false, ""],
-  ] as const;
-  return {
-    version: 1,
-    projects,
-    batches,
-    branches: entries.map((e, index) => ({
-      id: `demo-${index}`,
-      projectId: e[0],
-      name: e[1],
-      description: e[2],
-      tested: e[3],
-      mergedAt: e[4] ? time : null,
-      batchId: e[5],
-      released: false,
-      releasedAt: null,
-      note: "",
-      createdAt: time,
-      updatedAt: time,
-    })),
-  };
 }

@@ -1,27 +1,74 @@
 import { blankStore, parseStore, type Store } from "./model";
 
+export interface RepositoryBranch {
+  /** 短名，不含远程前缀，例如 feature/login */
+  name: string;
+  local: boolean;
+  /** 远程仓库名，例如 origin；没有远程分支时为 null */
+  remote: string | null;
+  /** 远程引用短名，例如 origin/feature/login */
+  remoteRef: string | null;
+  localCommit: string | null;
+  remoteCommit: string | null;
+  commit: string;
+  subject: string;
+  updatedAt: string;
+  current: boolean;
+  upstream: string;
+  ahead: number;
+  behind: number;
+}
 export interface Repository {
   path: string;
-  branches: {
-    name: string;
-    commit: string;
-    subject: string;
-    updatedAt: string;
-    current: boolean;
-  }[];
+  current: string;
+  defaultBranch: string;
+  remotes: string[];
+  /** 远程名 → 仓库地址（如 origin → git@github.com:me/repo.git） */
+  remoteUrls?: Record<string, string>;
+  /** 仓库配置的提交身份；未配置时为空字符串 */
+  user?: { name: string; email: string };
+  branches: RepositoryBranch[];
+}
+export interface FetchResult {
+  repository: Repository;
+  updated: { name: string; from: string; to: string }[];
+  added: string[];
+  removed: string[];
+  errors: string[];
 }
 export interface MergePlan {
   id: string;
   path: string;
   target: string;
+  targetMode: "local" | "remote" | "create";
+  targetLocal: string;
+  targetRef: string;
+  targetRemoteRef: string;
   create: boolean;
   base: string;
+  baseRef: string;
   resolveBranch: string;
+  stage: "test" | "release";
   currentBranch: string;
   targetHead: string;
-  sources: { name: string; head: string }[];
+  localHead: string | null;
+  sources: { name: string; ref: string; head: string }[];
 }
 export interface MergeResult {
+  status: "success" | "failed" | "conflict";
+  workingBranch: string;
+  target: string;
+  targetMode: "local" | "remote" | "create";
+  targetLocal: string;
+  remoteRef: string;
+  fastForwarded: boolean;
+  merged: string[];
+  pending: string[];
+  conflicts: string[];
+  message: string;
+  logs: string[];
+}
+export interface ContinueResult {
   status: "success" | "failed" | "conflict";
   workingBranch: string;
   merged: string[];
@@ -30,20 +77,124 @@ export interface MergeResult {
   message: string;
   logs: string[];
 }
+export interface MergeSession {
+  id: string;
+  stage: "test" | "release";
+  target: string;
+  targetMode: "local" | "remote" | "create";
+  targetLocal: string;
+  remoteRef: string;
+  branch: string;
+  merged: string[];
+  pending: string[];
+  startedAt: string;
+}
+export interface MergeState {
+  path: string;
+  branch: string;
+  merging: boolean;
+  unmerged: string[];
+  staged: string[];
+  session: MergeSession | null;
+}
+export interface ConflictFile {
+  file: string;
+  binary: boolean;
+  working: string | null;
+  base: string | null;
+  ours: string | null;
+  theirs: string | null;
+  exists: { working: boolean; ours: boolean; theirs: boolean };
+}
+export interface ConflictState {
+  unmerged: string[];
+  staged: string[];
+}
+export interface ConflictResolution extends ConflictState {
+  file: string;
+}
+export interface CommitResult {
+  commit: string;
+  output: string;
+  branch: string;
+}
+export interface AbortResult {
+  branch: string;
+  removed: string[];
+}
+export interface FinalizeResult {
+  branch: string;
+  commit: string;
+  removed: string[];
+}
+export interface PushResult {
+  remote: string;
+  branch: string;
+  remoteBranch: string;
+  output: string;
+}
 
 declare global {
   interface Window {
     branchNote?: {
       pickRepository(): Promise<Repository | null>;
       readRepository(path: string): Promise<Repository>;
+      fetchRepository(path: string): Promise<FetchResult>;
       prepareMerge(
         path: string,
         target: string,
         sources: string[],
         resolveBranch: string,
-        options?: { create?: boolean; base?: string },
+        options?: { create?: boolean; base?: string; stage?: "test" | "release" },
       ): Promise<MergePlan>;
       executeMerge(planId: string): Promise<MergeResult>;
+      pushBranch(
+        path: string,
+        branch: string,
+        remote?: string,
+      ): Promise<PushResult>;
+      mergeState(path: string): Promise<MergeState>;
+      readConflict(path: string, file: string): Promise<ConflictFile>;
+      openConflictInEditor(
+        path: string,
+        file: string,
+      ): Promise<{ file: string; path: string }>;
+      readWorkingFile(
+        path: string,
+        file: string,
+      ): Promise<{ file: string; content: string | null }>;
+      resolveConflict(
+        path: string,
+        file: string,
+        content: string,
+      ): Promise<ConflictResolution>;
+      takeConflictSide(
+        path: string,
+        file: string,
+        side: "ours" | "theirs",
+      ): Promise<ConflictResolution>;
+      unionConflict(
+        path: string,
+        file: string,
+      ): Promise<{ file: string; content: string }>;
+      commitConflict(path: string, message: string): Promise<CommitResult>;
+      abortConflict(path: string, returnTo: string): Promise<AbortResult>;
+      mergeRequestUrl(
+        path: string,
+        source: string,
+        target: string,
+      ): Promise<string>;
+      openUrl(url: string): Promise<void>;
+      continueMerge(
+        path: string,
+        branch: string,
+        sources: string[],
+      ): Promise<ContinueResult>;
+      finalizeMerge(
+        path: string,
+        targetLocal: string,
+        from: string,
+      ): Promise<FinalizeResult>;
       read(): Promise<string | null>;
       write(content: string): Promise<void>;
       backup(content: string): Promise<void>;

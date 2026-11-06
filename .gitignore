@@ -2,3 +2,8 @@ node_modules/
 dist/
 release/
 *.log
+
+# 测试临时产物与截图
+.tmp/
+docs/e2e/
+docs/preview-*.png
