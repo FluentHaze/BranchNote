@@ -2789,3 +2789,121 @@ td {
   max-width: 380px;
   white-space: nowrap;
 }
+
+/* 设置页：代码托管令牌 */
+.tag.orange {
+  border-color: #f6ddc7;
+  background: #fff4e8;
+  color: #b45309;
+}
+.host-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 16px 0 4px;
+}
+.host-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 10px 13px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--bg);
+}
+.host-item-main {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-width: 0;
+  flex-wrap: wrap;
+}
+.host-item-main code {
+  background: none;
+  padding: 0;
+  font-size: 12px;
+  color: var(--ink);
+  overflow-wrap: anywhere;
+}
+.host-token {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.host-flag {
+  font-size: 11px;
+  color: var(--warning);
+  border: 1px solid #f0dfc2;
+  background: #fdf6e7;
+  border-radius: 4px;
+  padding: 1px 5px;
+}
+.host-item-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: none;
+}
+.host-feedback {
+  font-size: 12px;
+  color: var(--muted);
+  max-width: 320px;
+}
+.host-empty {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+.host-warning {
+  font-size: 12px;
+  line-height: 1.7;
+  color: var(--warning);
+  background: #fdf6e7;
+  border: 1px solid #f0dfc2;
+  border-radius: 9px;
+  padding: 9px 12px;
+  margin: 12px 0 0;
+}
+.host-form {
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 18px;
+  padding-top: 18px;
+  border-top: 1px solid var(--line);
+}
+.host-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  flex: 1 1 220px;
+}
+.host-field > span {
+  font-size: 12px;
+  color: var(--muted);
+}
+.host-field input {
+  width: 100%;
+}
+.host-field-provider {
+  flex: 0 0 132px;
+}
+.host-field-token {
+  flex: 1 1 240px;
+}
+.host-save {
+  flex: none;
+  height: 34px;
+}
+@media (max-width: 900px) {
+  .host-item {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}

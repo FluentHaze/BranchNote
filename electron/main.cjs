@@ -20,6 +20,13 @@ const {
   abortMerge,
   mergeRequestUrl,
 } = require("./git.cjs");
+const {
+  listHosts,
+  saveHost,
+  removeHost,
+  testHost,
+  createMergeRequest,
+} = require("./hosts.cjs");
 
 let window;
 let mergePlan;
@@ -108,12 +115,23 @@ app.whenReady().then(() => {
   ipcMain.handle("repository:mr-url", (_, { directory, source, target }) =>
     mergeRequestUrl(directory, source, target),
   );
-  // 在系统浏览器里打开（用于 MR 创建页）
+  // 在系统浏览器里打开（用于 MR 创建页 / 已创建的 MR）
   ipcMain.handle("repository:open-url", (_, url) => {
     if (typeof url !== "string" || !/^https?:\/\//i.test(url))
       throw new Error("链接格式不正确");
     return shell.openExternal(url);
   });
+  // 用访问令牌调接口直接创建 MR / PR；失败时返回原因，由界面给兜底链接
+  ipcMain.handle(
+    "repository:create-mr",
+    (_, { directory, source, target, title, description }) =>
+      createMergeRequest({ directory, source, target, title, description }),
+  );
+  // 令牌管理：只把域名与掩码返回给界面，令牌原文不出主进程
+  ipcMain.handle("hosts:list", () => listHosts());
+  ipcMain.handle("hosts:save", (_, payload) => saveHost(payload || {}));
+  ipcMain.handle("hosts:remove", (_, host) => removeHost(host));
+  ipcMain.handle("hosts:test", (_, payload) => testHost(payload || {}));
   ipcMain.handle(
     "repository:continue-merge",
     async (_, { directory, branch, sources }) => {

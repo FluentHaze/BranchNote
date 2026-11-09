@@ -559,12 +559,18 @@ async function main() {
     const featureBefore = sh(["rev-parse", "feature/login"]);
     await openRow("feature/login", "release");
     await waitFor(
-      `document.body.innerText.includes('已提交合并请求（MR）')`,
+      `document.body.innerText.includes('等待创建 MR')`,
       "MR 完成页",
       60000,
     );
     const mrDone = await text();
     check("完成页说明目标分支未直接推送", mrDone.includes("受保护，未直接推送"), mrDone.slice(0, 300));
+    // 测试仓库的 origin 是本地裸仓库，没有可调用的托管平台接口，应降级并说明原因
+    check(
+      "本地远程时说明无法自动创建 MR",
+      mrDone.includes("无法自动创建 MR"),
+      mrDone.slice(0, 400),
+    );
     const mrBranch = sh(["for-each-ref", "--format=%(refname:short)", "refs/heads/mr/*"]).trim();
     check("创建了 mr/* 集成分支", mrBranch.startsWith("mr/"), mrBranch);
     await waitFor(
@@ -708,6 +714,64 @@ async function main() {
     await shot("45-repo-meta");
     await clickText("取消");
     await waitFor(`!document.querySelector('dialog[open]')`, "关闭添加弹窗", 20000);
+
+    // ---- 用例 9：设置页按域名保存代码托管令牌（脱敏显示、可删除） ----
+    await evaluate(
+      `(()=>{const b=[...document.querySelectorAll('.nav-item')].find(x=>x.textContent.includes('数据与设置'));if(!b)return false;b.click();return true})()`,
+    );
+    await waitFor(`!!document.querySelector('.host-form')`, "令牌设置面板", 20000);
+    const tokenPanel = await evaluate(
+      `([...document.querySelectorAll('.settings-panel')].find(p=>p.innerText.includes('代码托管令牌'))||{}).innerText||''`,
+    );
+    check(
+      "设置页说明令牌只留在本机",
+      tokenPanel.includes("系统钥匙串") && tokenPanel.includes("不会写进台账"),
+      tokenPanel.slice(0, 300),
+    );
+    const FAKE_HOST = "gitlab.branchnote-test.invalid";
+    const FAKE_TOKEN = "glpat-fake-token-0123456789";
+    await evaluate(
+      `(()=>{const i=document.querySelector('.host-form input[aria-label="平台地址"]');const set=Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set;set.call(i,${JSON.stringify(FAKE_HOST)});i.dispatchEvent(new Event('input',{bubbles:true}));return true})()`,
+    );
+    await evaluate(
+      `(()=>{const i=document.querySelector('.host-form input[aria-label="访问令牌"]');const set=Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set;set.call(i,${JSON.stringify(FAKE_TOKEN)});i.dispatchEvent(new Event('input',{bubbles:true}));return true})()`,
+    );
+    await shot("46-token-form");
+    await clickText("保存令牌");
+    await waitFor(`!!document.querySelector('.host-item')`, "令牌已保存", 20000);
+    const hostRow = await evaluate(
+      `document.querySelector('.host-item').innerText.replace(/\\s+/g,' ')`,
+    );
+    check(
+      "令牌按域名保存并显示脱敏提示",
+      hostRow.includes(FAKE_HOST) && hostRow.includes("••••••6789"),
+      hostRow,
+    );
+    check(
+      "界面不显示令牌原文",
+      !(await text()).includes(FAKE_TOKEN),
+      "页面出现了令牌原文",
+    );
+    const HOSTS = path.join(path.dirname(DATA), "hosts.json");
+    const stored = JSON.parse(fs.readFileSync(HOSTS, "utf8"));
+    const savedEntry = stored.hosts.find((item) => item.host === FAKE_HOST);
+    check("令牌写入本地配置文件", !!savedEntry, JSON.stringify(stored.hosts));
+    check(
+      "令牌不以明文落盘（系统钥匙串可用时）",
+      !savedEntry || savedEntry.encrypted === false || !JSON.stringify(stored).includes(FAKE_TOKEN),
+      "hosts.json 里出现了明文令牌",
+    );
+    await shot("47-token-saved");
+    // 删除要二次确认，确认后行消失、配置文件同步清掉
+    await evaluate(`document.querySelector('.host-item .icon-button').click()`);
+    await clickText("确认删除");
+    await waitFor(`!document.querySelector('.host-item')`, "令牌已删除", 20000);
+    const afterToken = JSON.parse(fs.readFileSync(HOSTS, "utf8"));
+    check(
+      "删除后配置文件里不再有该域名",
+      !afterToken.hosts.some((item) => item.host === FAKE_HOST),
+      JSON.stringify(afterToken.hosts),
+    );
 
     // 收尾：清掉测试产生的 mr 分支，复位数据，给用户留一个干净基线
     resetRepo();

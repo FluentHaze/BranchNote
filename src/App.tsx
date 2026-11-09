@@ -3,6 +3,7 @@ import BranchTable from "./BranchTable";
 import BranchPicker from "./BranchPicker";
 import SubmitDialog from "./SubmitDialog";
 import TargetBar from "./TargetBar";
+import HostsPanel from "./HostsPanel";
 import Modal from "./Modal";
 import EditorForm, { type Editor } from "./EditorForm";
 import { useEffect, useRef, useState } from "react";
@@ -349,6 +350,7 @@ export default function App() {
                   </button>
                 </div>
               </section>
+              <HostsPanel notify={setToast} />
               <section className="settings-panel">
                 <h2>关于本地存储</h2>
                 <p className="settings-copy">
@@ -359,6 +361,9 @@ export default function App() {
                 </p>
                 <p className="settings-copy">
                   点「提交测试 / 提交发布」即合并到对应分支并推送，冲突文件逐个由你决定取舍。合并状态由提交操作自动写入，应用不会自动部署。
+                </p>
+                <p className="settings-copy">
+                  代码托管令牌单独存放在同一目录的 hosts.json（系统钥匙串加密），不随备份导出或恢复，换机器需要重新填写。
                 </p>
               </section>
             </>
@@ -685,6 +690,10 @@ export default function App() {
           store={store}
           commit={commit}
           close={() => setSubmit(null)}
+          openSettings={() => {
+            setSubmit(null);
+            navigate({ kind: "settings" });
+          }}
         />
       )}
       {deleteQueue && (

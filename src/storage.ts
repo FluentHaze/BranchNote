@@ -133,6 +133,32 @@ export interface PushResult {
   remoteBranch: string;
   output: string;
 }
+/** 按域名保存的代码托管令牌；只有掩码，令牌原文不出主进程 */
+export interface HostCredential {
+  host: string;
+  provider: "gitlab" | "github";
+  scheme: string;
+  hint: string;
+  /** false 表示系统钥匙串不可用，令牌以明文（base64）落盘 */
+  encrypted: boolean;
+  updatedAt: string;
+}
+export interface HostSaveResult {
+  hosts: HostCredential[];
+  entry: HostCredential;
+}
+export interface HostTestResult {
+  ok: boolean;
+  account: string;
+  message: string;
+}
+export interface MergeRequestResult {
+  status: "created" | "exists" | "no-token" | "unsupported" | "failed";
+  provider?: "gitlab" | "github" | "other";
+  url?: string;
+  number?: string;
+  message: string;
+}
 
 declare global {
   interface Window {
@@ -185,6 +211,24 @@ declare global {
         target: string,
       ): Promise<string>;
       openUrl(url: string): Promise<void>;
+      createMergeRequest(
+        directory: string,
+        source: string,
+        target: string,
+        title?: string,
+        description?: string,
+      ): Promise<MergeRequestResult>;
+      listHosts(): Promise<HostCredential[]>;
+      saveHost(payload: {
+        host: string;
+        provider: "gitlab" | "github";
+        token: string;
+      }): Promise<HostSaveResult>;
+      removeHost(host: string): Promise<HostCredential[]>;
+      testHost(payload: {
+        host: string;
+        provider: "gitlab" | "github";
+      }): Promise<HostTestResult>;
       continueMerge(
         path: string,
         branch: string,

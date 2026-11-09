@@ -1004,33 +1004,90 @@ async function finalizeMerge(directory, targetLocal, from) {
 
 // 推算 MR / PR 创建页地址：按远程仓库的 web 地址与平台类型（GitLab / GitHub）生成预填链接。
 // 远程不是 http(s) 或 git@ 的常见形式（比如本地裸仓库路径）时返回空串，由界面降级提示。
-async function mergeRequestUrl(directory, source, target) {
+// 把 https / ssh / git@ 三种远程地址统一成「网页地址 + 项目路径」
+// GitLab 的项目路径要保留子组（group/sub/repo），建 MR 的接口按它拼项目 ID
+function parseRemoteUrl(value) {
+  const url = String(value || "").trim();
+  if (!url) return null;
+  // 本地裸仓库 / 文件路径不是托管平台，直接当作无法识别
+  if (
+    /^file:\/\//i.test(url) ||
+    /^[a-z]:[\\/]/i.test(url) ||
+    /^[\\/]/.test(url) ||
+    /^\.{1,2}[\\/]/.test(url)
+  )
+    return null;
+  let scheme = "https";
+  let host = "";
+  let projectPath = "";
+  if (/^https?:\/\//i.test(url)) {
+    const match = /^(https?):\/\/(?:[^@/]+@)?([^/]+)\/(.+)$/i.exec(url);
+    if (!match) return null;
+    scheme = match[1].toLowerCase();
+    host = match[2];
+    projectPath = match[3];
+  } else if (/^ssh:\/\//i.test(url)) {
+    const match = /^ssh:\/\/(?:[^@/]+@)?([^/:]+)(?::\d+)?\/(.+)$/i.exec(url);
+    if (!match) return null;
+    host = match[1];
+    projectPath = match[2];
+  } else {
+    // scp 形式：git@host:group/repo.git
+    const match = /^(?:[^@/]+@)?([^:/]+):(.+)$/.exec(url);
+    if (!match) return null;
+    host = match[1];
+    projectPath = match[2];
+  }
+  const project = projectPath
+    .replace(/^\/+/, "")
+    .replace(/\/+$/, "")
+    .replace(/\.git$/i, "");
+  if (!host || !project || !project.includes("/")) return null;
+  const segments = project.split("/");
+  return {
+    host,
+    scheme,
+    web: `${scheme}://${host}/${project}`,
+    projectPath: project,
+    // owner/repo 供 GitHub 接口使用；GitLab 用完整 projectPath
+    owner: segments[0],
+    repo: segments[segments.length - 1],
+    // 只是按域名猜，自建 GitLab 用别的域名时以设置里的配置为准
+    provider: /gitlab/i.test(host)
+      ? "gitlab"
+      : /github/i.test(host)
+        ? "github"
+        : "other",
+  };
+}
+
+// 读默认远程（优先 origin）的地址信息，供 MR / PR 创建与设置页预填使用
+async function remoteInfo(directory) {
   const root = await repositoryRoot(directory);
   const remotes = (await git(root, ["remote"]).catch(() => ""))
     .split(/\r?\n/)
     .map((name) => name.trim())
     .filter(Boolean);
-  if (!remotes.length) return "";
+  if (!remotes.length) return null;
+  const name = remotes.includes("origin") ? "origin" : remotes[0];
   let url = "";
   try {
-    url = (await git(root, ["remote", "get-url", remotes[0]])).trim();
+    url = (await git(root, ["remote", "get-url", name])).trim();
   } catch {
-    return "";
+    return null;
   }
-  let web = "";
-  if (/^https?:\/\//i.test(url)) web = url.replace(/\.git$/i, "");
-  else {
-    const ssh =
-      /^git@([^:]+):(.+?)(?:\.git)?$/i.exec(url) ||
-      /^ssh:\/\/git@([^/]+)\/(.+?)(?:\.git)?$/i.exec(url);
-    if (ssh) web = `https://${ssh[1]}/${ssh[2]}`;
-  }
-  if (!web) return "";
-  const host = web.replace(/^https?:\/\//i, "").split("/")[0] || "";
-  if (/gitlab/i.test(host))
-    return `${web}/-/merge_requests/new?merge_request[source_branch]=${encodeURIComponent(source)}&merge_request[target_branch]=${encodeURIComponent(target)}`;
-  if (/github/i.test(host))
-    return `${web}/compare/${encodeURIComponent(target)}...${encodeURIComponent(source)}`;
+  const parsed = parseRemoteUrl(url);
+  if (!parsed) return null;
+  return { name, url, ...parsed };
+}
+
+async function mergeRequestUrl(directory, source, target) {
+  const info = await remoteInfo(directory).catch(() => null);
+  if (!info) return "";
+  if (info.provider === "gitlab")
+    return `${info.web}/-/merge_requests/new?merge_request[source_branch]=${encodeURIComponent(source)}&merge_request[target_branch]=${encodeURIComponent(target)}`;
+  if (info.provider === "github")
+    return `${info.web}/compare/${encodeURIComponent(target)}...${encodeURIComponent(source)}?expand=1`;
   return "";
 }
 
@@ -1080,5 +1137,7 @@ module.exports = {
   unionConflictFile,
   commitResolution,
   abortMerge,
+  parseRemoteUrl,
+  remoteInfo,
   mergeRequestUrl,
 };

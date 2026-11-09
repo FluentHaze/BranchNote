@@ -85,6 +85,7 @@ export default function SubmitDialog({
   store,
   commit,
   close,
+  openSettings,
 }: {
   project: Project;
   branchIds: string[];
@@ -93,6 +94,8 @@ export default function SubmitDialog({
   store: Store;
   commit(store: Store, message?: string): Promise<boolean>;
   close(): void;
+  // 没配令牌时跳去设置页补令牌
+  openSettings?(): void;
 }) {
   // 用本地副本记录本次提交过程中写回的台账，避免连续 commit 时互相覆盖
   const [ledger, setLedger] = useState(store);
@@ -121,11 +124,23 @@ export default function SubmitDialog({
   const [pushing, setPushing] = useState(false);
   const [resume, setResume] = useState<MergeState | null>(null);
   const [resolving, setResolving] = useState(false);
-  // 受保护目标模式的结果信息：集成分支、目标分支、MR 创建页链接
+  // 受保护目标模式的结果信息：集成分支、目标分支、接口创建的 MR
   const [mrInfo, setMrInfo] = useState<{
     branch: string;
     target: string;
-    url: string;
+    // 预填好的创建页，令牌缺失或接口失败时兜底
+    pageUrl: string;
+    // 接口创建成功（或已存在）后的 MR / PR 地址
+    mrUrl: string;
+    number: string;
+    state:
+      | "pending"
+      | "created"
+      | "exists"
+      | "no-token"
+      | "unsupported"
+      | "failed";
+    message: string;
   } | null>(null);
   const path = project.repositoryPath || "";
   const key = branchIds.join("|");
@@ -394,35 +409,81 @@ export default function SubmitDialog({
     });
     setResume(null);
     if (context.mrTarget) {
-      // 受保护目标：不碰目标分支，推送集成分支并尝试打开 MR 创建页
+      // 受保护目标：不碰目标分支，推集成分支后直接调接口建 MR / PR
       setMrInfo({
         branch: context.targetLocal,
         target: context.mrTarget,
-        url: "",
+        pageUrl: "",
+        mrUrl: "",
+        number: "",
+        state: "pending",
+        message: "",
       });
       const remote = repository?.remotes[0];
       if (push && remote)
         await pushNow(context.targetLocal, `${remote}/${context.targetLocal}`);
-      await tryOpenMr(context.targetLocal, context.mrTarget);
+      await createMr(context.targetLocal, context.mrTarget, merged);
     } else if (push && context.remoteRef)
       await pushNow(context.targetLocal, context.remoteRef);
   }
 
-  // 推算并打开 MR / PR 创建页（远程是 GitLab / GitHub 时给出预填链接）
-  async function tryOpenMr(source: string, target: string) {
-    if (!window.branchNote?.mergeRequestUrl) return;
+  // 真正调接口建 MR / PR：有令牌就直接建，没有就只准备预填创建页当兜底
+  async function createMr(source: string, target: string, merged: string[]) {
+    if (!window.branchNote) return;
+    let pageUrl = "";
     try {
-      const url = await window.branchNote.mergeRequestUrl(path, source, target);
-      setMrInfo((prev) => (prev ? { ...prev, url: url || "" } : prev));
-      if (url) {
-        try {
-          await window.branchNote.openUrl(url);
-        } catch {
-          // 打不开浏览器时保留按钮，让用户手动点
-        }
-      }
+      pageUrl =
+        (await window.branchNote.mergeRequestUrl?.(path, source, target)) || "";
     } catch {
-      // 拿不到链接时保持提示降级
+      pageUrl = "";
+    }
+    setMrInfo((prev) => (prev ? { ...prev, pageUrl } : prev));
+    if (!window.branchNote.createMergeRequest) {
+      setMrInfo((prev) =>
+        prev
+          ? {
+              ...prev,
+              state: "unsupported",
+              message: "当前环境不支持调用接口创建合并请求",
+            }
+          : prev,
+      );
+      return;
+    }
+    const names = normalizeNames(merged);
+    const label = stageRef.current === "test" ? "测试" : "发布";
+    const title = `${label}：${names.join("、") || source}`.slice(0, 180);
+    const description = [
+      `由 BranchNote 提交${label}：${names.join("、") || source}`,
+      `目标分支：${target}`,
+      `集成分支：${source}`,
+    ].join("\n");
+    try {
+      const result = await window.branchNote.createMergeRequest(
+        path,
+        source,
+        target,
+        title,
+        description,
+      );
+      setMrInfo((prev) =>
+        prev
+          ? {
+              ...prev,
+              state: result.status,
+              mrUrl: result.url || "",
+              number: result.number || "",
+              message: result.message || "",
+            }
+          : prev,
+      );
+      // 建好就直接把 MR 页面打开，省掉再找一遍
+      if ((result.status === "created" || result.status === "exists") && result.url)
+        await window.branchNote.openUrl(result.url).catch(() => undefined);
+    } catch (reason) {
+      setMrInfo((prev) =>
+        prev ? { ...prev, state: "failed", message: message(reason) } : prev,
+      );
     }
   }
   // 目标以本次实际使用的 destination 为准：点一下就跑时 state 还没更新，
@@ -830,7 +891,13 @@ export default function SubmitDialog({
           <div className="merge-result">
             <h3>
               {mrInfo
-                ? "已提交合并请求（MR）"
+                ? mrInfo.state === "created"
+                  ? "已创建合并请求（MR）"
+                  : mrInfo.state === "exists"
+                    ? "该分支已有合并请求（MR）"
+                    : mrInfo.state === "pending"
+                      ? "正在创建合并请求（MR）"
+                      : "已推送集成分支，等待创建 MR"
                 : stage === "test"
                   ? "已合入测试分支"
                   : "已合入发布分支"}
@@ -856,9 +923,21 @@ export default function SubmitDialog({
             </p>
             {mrInfo ? (
               <p className="picker-note">
-                {mrInfo.url
-                  ? "已为你打开 MR 创建页（GitLab / GitHub 会预填好源分支和目标分支），在页面上确认提交即可。"
-                  : `远程不是 GitLab / GitHub，无法自动打开创建页：请手动创建 MR（${mrInfo.branch} → ${mrInfo.target}）。`}
+                {mrInfo.state === "pending"
+                  ? "正在调用代码托管平台的接口创建合并请求…"
+                  : mrInfo.state === "created"
+                    ? `已通过接口创建合并请求${
+                        mrInfo.number ? ` #${mrInfo.number}` : ""
+                      }，并已为你打开页面。`
+                    : mrInfo.state === "exists"
+                      ? `该源分支已有打开的合并请求${
+                          mrInfo.number ? ` #${mrInfo.number}` : ""
+                        }，已为你打开。`
+                      : mrInfo.state === "no-token"
+                        ? `${mrInfo.message}。现在仍可打开预填好的创建页，手动点一次即可。`
+                        : mrInfo.state === "unsupported"
+                          ? `无法自动创建 MR：${mrInfo.message}`
+                          : `自动创建 MR 失败：${mrInfo.message}`}
               </p>
             ) : stage === "test" ? (
               <p className="picker-note">
@@ -891,18 +970,31 @@ export default function SubmitDialog({
               <button className="secondary" disabled={busy} onClick={close}>
                 关闭
               </button>
-              {mrInfo?.url && (
+              {mrInfo?.state === "no-token" && openSettings && (
+                <button className="secondary" onClick={openSettings}>
+                  <Settings2 size={15} />
+                  去设置令牌
+                </button>
+              )}
+              {mrInfo?.mrUrl ? (
                 <button
                   className="primary"
                   disabled={busy || pushing}
-                  onClick={() =>
-                    void window.branchNote?.openUrl(mrInfo.url)
-                  }
+                  onClick={() => void window.branchNote?.openUrl(mrInfo.mrUrl)}
+                >
+                  <ExternalLink size={15} />
+                  打开 MR
+                </button>
+              ) : mrInfo?.pageUrl ? (
+                <button
+                  className="primary"
+                  disabled={busy || pushing}
+                  onClick={() => void window.branchNote?.openUrl(mrInfo.pageUrl)}
                 >
                   <ExternalLink size={15} />
                   打开 MR 创建页
                 </button>
-              )}
+              ) : null}
               {!mrInfo && !pushResult && result.remoteRef && (
                 <button
                   className="primary"

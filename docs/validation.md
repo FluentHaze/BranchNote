@@ -2,6 +2,18 @@
 
 验证环境：Windows，2026-11-06。
 
+## 2026-11-09 新增：用令牌调接口直接创建 MR / PR（GitLab + GitHub）
+
+起因：用户提问“如果是 GitLab，不需要令牌登录吗？提交 MR 需要调用接口”，并选择 GitLab 与 GitHub 都支持。
+
+1. **远程地址解析**（`electron/git.cjs`）：新增 `parseRemoteUrl` / `remoteInfo`，统一处理 `https` / `ssh://` / `git@host:group/repo.git`，保留 GitLab 子组路径，给出 `web`、`owner`、`repo`、`provider`；本地路径与 `file://` 明确返回 `null`，避免把测试用的裸仓库误判成平台。`mergeRequestUrl` 改用这份信息，GitHub 补 `?expand=1`。
+2. **令牌存储**（`electron/hosts.cjs`）：按「域名 + 平台类型」保存；`safeStorage` 可用时加密为密文，不可用时降级为 base64 并在界面标注“未加密存储”；只向渲染进程返回 `host` / `provider` / `hint`（末四位掩码），令牌原文不出主进程、不写台账、不进备份。
+3. **建 MR / PR**：GitLab `POST /api/v4/projects/:encoded/merge_requests`（`PRIVATE-TOKEN`），GitHub `POST /api/v3|api.github.com/repos/:owner/:repo/pulls`（`Bearer`）；`409/422 已存在` 时反查同源同目标的打开请求并复用；401/403/404 与证书、DNS、超时的错误都翻译成可操作的中文提示。
+4. **设置页**（`src/HostsPanel.tsx`）：添加令牌、测试连接、二次确认删除；明文存储时给黄色警告；说明 GitLab `api` / GitHub `repo` 权限位置。
+5. **提交完成页**（`src/SubmitDialog.tsx`）：推送集成分支后直接调接口创建，成功/已存在时显示 `#编号` 并自动打开 MR，失败或无令牌时说明原因并保留「打开 MR 创建页」兜底，`no-token` 时额外给「去设置令牌」；「受保护，未直接推送」等原有文案不变。
+6. **测试**：新增 `tests/remote.test.ts`（7 项：三种地址形式、端口、自建域名、本地路径拒绝、GitLab/GitHub 创建页链接）；`ui-stage-test.cjs` 用例 6 改为断言降级文案、新增用例 9（保存令牌→掩码显示→原文不出现→`hosts.json` 非明文→删除后清空）。**`npm test` 41/41、`test:stage` 60/60**，`tsc` / `npm run build` 通过。
+7. 文档：README 受保护分支流程与令牌说明、`docs/测试流程.md` 场景 12 预期与新增场景 15。
+
 ## 2026-11-06 调整：去掉分组折叠、精简操作区、标签并入备注
 
 起因：用户反馈分组标题行太抢眼（想去掉折叠），操作区一行四个按钮太多，且「分支标签」与「备注」重复。
