@@ -1,9 +1,7 @@
 import {
   Folder,
-  GitBranch,
   Plus,
   Settings2,
-  ShieldCheck,
 } from "lucide-react";
 import type { Store } from "./model";
 import type { Editor } from "./EditorForm";
@@ -22,10 +20,11 @@ export default function Sidebar({ store, view, navigate, setEditor }: Props) {
     <aside className="sidebar">
       <div className="brand">
         <div className="brand-icon">
-          <GitBranch size={24} strokeWidth={2.2} />
+          <img src="./logo.svg" alt="" width="42" height="42" />
         </div>
         <span>
-          BranchNote<small>每个分支，都有着落。</small>
+          BranchNote
+
         </span>
       </div>
       <nav aria-label="主导航">
@@ -59,18 +58,12 @@ export default function Sidebar({ store, view, navigate, setEditor }: Props) {
         )}
       </nav>
       <div className="sidebar-bottom">
-        <div className="local-card">
-          <ShieldCheck size={18} />
-          <div>
-            只在你的设备上<small>无需登录，离线也能安心记录</small>
-          </div>
-        </div>
         <button
           className={`nav-item ${view.kind === "settings" ? "active" : ""}`}
           onClick={() => navigate({ kind: "settings" })}
         >
           <Settings2 size={18} />
-          数据与设置<span className="version">v{version}</span>
+          设置与令牌<span className="version">v{version}</span>
         </button>
       </div>
     </aside>

@@ -41,7 +41,9 @@ export default function Modal({
           <X size={19} />
         </button>
       </div>
-      {children}
+      <div className="modal-scroll">
+        {children}
+      </div>
     </dialog>
   );
 }

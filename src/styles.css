@@ -1,24 +1,22 @@
 :root {
   font-size: 14px;
-  font-family:
-    -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI",
-    "Microsoft YaHei", sans-serif;
+  font-family: "BranchNote Sans", sans-serif;
   color: var(--ink);
   background: var(--bg);
   font-synthesis: none;
   -webkit-font-smoothing: antialiased;
 
-  /* 参照 codex-pulse 的 Apple 风格浅色色板 */
-  --bg: #f6f6f8;
+  /* A 轻量清单：白色工作区、浅灰导航、钴蓝操作 */
+  --bg: #f7f8fa;
   --surface: #ffffff;
-  --sidebar: #f0f2f5;
-  --ink: #1d1d1f;
-  --muted: #68686d;
-  --line: #e3e3e8;
-  --rail: #e5e5ea;
-  --accent: #0067d9;
-  --accent-soft: #e8f2ff;
-  --accent-soft-hover: #dbe9ff;
+  --sidebar: #f6f7fb;
+  --ink: #252936;
+  --muted: #717887;
+  --line: #e7eaf0;
+  --rail: #edf2f4;
+  --accent: #4263dc;
+  --accent-soft: #eff2fd;
+  --accent-soft-hover: #e6ebfb;
   --positive: #24813c;
   --positive-soft: #e8f5eb;
   --warning: #996000;
@@ -34,12 +32,16 @@
 }
 * {
   box-sizing: border-box;
-  scrollbar-width: none;
+  scrollbar-width: thin;
+  scrollbar-color: #a8bbc3 transparent;
 }
 *::-webkit-scrollbar {
-  display: none;
-  width: 0;
-  height: 0;
+  width: 7px;
+  height: 7px;
+}
+*::-webkit-scrollbar-thumb {
+  background: #a8bbc3;
+  border-radius: 8px;
 }
 body {
   margin: 0;
@@ -1771,7 +1773,7 @@ tbody tr.row-selected {
   display: flex;
   flex-direction: column;
 }
-.select-menu > button {
+.select-menu [role="option"] {
   justify-content: space-between;
   gap: 16px;
   flex-shrink: 0;
@@ -1782,13 +1784,13 @@ tbody tr.row-selected {
   text-align: left;
   overflow-wrap: anywhere;
 }
-.select-menu > button:hover,
-.select-menu > button:focus {
+.select-menu [role="option"]:hover,
+.select-menu [role="option"]:focus {
   outline: none;
   background: var(--accent-soft);
   color: var(--accent);
 }
-.select-menu > button[aria-selected="true"] {
+.select-menu [role="option"][aria-selected="true"] {
   color: var(--accent);
   background: var(--accent-soft);
 }
@@ -2882,6 +2884,8 @@ td {
   flex-direction: column;
   gap: 6px;
   min-width: 0;
+}
+.host-form > :where(.host-field) {
   flex: 1 1 220px;
 }
 .host-field > span {

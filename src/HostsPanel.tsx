@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { KeyRound, ShieldCheck, Trash2 } from "lucide-react";
 import Select from "./Select";
+import { providerForHost, tokenCreationUrl } from "./tokenLink";
 import type { HostCredential } from "./storage";
 
 const PROVIDERS = [
@@ -21,7 +22,8 @@ export default function HostsPanel({
   const [hosts, setHosts] = useState<HostCredential[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [host, setHost] = useState("");
-  const [provider, setProvider] = useState<"gitlab" | "github">("gitlab");
+  const [selectedProvider, setProvider] = useState<"gitlab" | "github">("gitlab");
+  const provider = providerForHost(host, selectedProvider);
   const [token, setToken] = useState("");
   const [busy, setBusy] = useState("");
   const [error, setError] = useState("");
@@ -43,6 +45,16 @@ export default function HostsPanel({
       active = false;
     };
   }, [api]);
+
+  async function getToken(address: string, platform: "gitlab" | "github") {
+    setError("");
+    try {
+      const url = tokenCreationUrl(address, platform);
+      await api?.openUrl(url);
+    } catch (reason) {
+      setError(text(reason));
+    }
+  }
 
   async function save() {
     if (!api?.saveHost) return;
@@ -111,7 +123,7 @@ export default function HostsPanel({
     <section className="settings-panel">
       <h2>代码托管令牌</h2>
       <p className="settings-copy">
-        配置后，受保护分支在提交完成时会直接调用接口创建 MR / PR，不用再手填网页表单。
+        配置访问令牌后，提交时会调用平台接口创建 MR / PR。无需在 BranchNote 登录账号。
         令牌按域名保存，用系统钥匙串加密，只留在本机，不会写进台账或导出的备份里。
       </p>
 
@@ -141,6 +153,7 @@ export default function HostsPanel({
                 )}
               </div>
               <div className="host-item-actions">
+                <button className="secondary compact" disabled={!!busy} onClick={() => void getToken((entry.scheme || "https") + "://" + entry.host, entry.provider)}>获取令牌</button>
                 {feedback[entry.host] && (
                   <span className="host-feedback">{feedback[entry.host]}</span>
                 )}
@@ -188,7 +201,7 @@ export default function HostsPanel({
       {loaded && hosts.length === 0 && (
         <p className="settings-copy host-empty">
           <ShieldCheck size={15} />
-          还没有配置令牌。不配置也能用：提交完成后会打开预填好的 MR 创建页。
+          尚未配置访问令牌。请在下方添加；也可打开 MR 创建页，在平台登录后手动提交。
         </p>
       )}
 
@@ -243,11 +256,17 @@ export default function HostsPanel({
               {busy === "save" ? "保存中…" : "保存令牌"}
             </button>
           </div>
+          <div className="host-token-help">
+            <button className="secondary compact" disabled={!!busy} onClick={() => void getToken(host, provider)}>
+              获取令牌
+            </button>
+            <span>打开平台页面并预填权限，生成后将令牌粘贴回来。</span>
+          </div>
           {error && <p className="form-error">{error}</p>}
           <p className="settings-copy">
             {provider === "gitlab"
-              ? "GitLab：右上角头像 → Preferences → Access Tokens，勾选 api（或 write_api）权限。自建 GitLab 填它自己的域名，接口会按该域名调用。"
-              : "GitHub：Settings → Developer settings → Personal access tokens。classic 勾 repo；fine-grained 需 Pull requests 读写权限。GitHub Enterprise 填企业域名即可。"}
+              ? "GitLab：预选 api 权限，用于创建 MR 和同步状态。请在平台确认有效期后生成令牌。"
+              : "GitHub：预选 Pull requests 读写权限。请在平台选择资源所属账号及需要访问的仓库，再生成令牌。旧版企业平台若不支持此页面，可在令牌设置中手动配置。"}
           </p>
         </>
       )}

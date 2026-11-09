@@ -3,6 +3,7 @@ const { promisify } = require("node:util");
 const path = require("node:path");
 const fs = require("node:fs/promises");
 const { randomUUID } = require("node:crypto");
+const { tmpdir } = require("node:os");
 
 const run = promisify(execFile);
 const MAX_BUFFER = 32 * 1024 * 1024;
@@ -332,7 +333,7 @@ async function prepareMerge(
   target,
   sources,
   resolveBranch,
-  { create = false, base = "", stage = "release" } = {},
+  { create = false, base = "", stage = "release", mrTarget = "" } = {},
 ) {
   const repository = await readRepository(directory);
   if (
@@ -347,9 +348,7 @@ async function prepareMerge(
     repository.branches.filter((branch) => branch.local).map((branch) => branch.name),
   );
   const remoteRefs = new Set(
-    repository.branches
-      .filter((branch) => branch.remoteRef)
-      .map((branch) => branch.remoteRef),
+    repository.branches.flatMap((branch) => branch.remoteRefs || (branch.remoteRef ? [branch.remoteRef] : [])),
   );
   // 目标可以是本地分支、远程跟踪分支（如 origin/release/week-45），或新建分支
   const targetSpec = localNames.has(target)
@@ -389,10 +388,9 @@ async function prepareMerge(
   }
   // 冲突分支名可以不填，由应用自动生成，用户不必关心
   let destination = resolveBranch;
-  if (typeof destination !== "string" || !destination.trim())
+  if (typeof destination !== "string" || !destination.trim() || destination.trim() === "resolve")
     destination = await nextResolveBranch(repository.path);
-  if (!destination.startsWith("resolve/"))
-    throw new Error("冲突分支必须以 resolve/ 开头");
+  destination = destination.trim();
   await git(repository.path, ["check-ref-format", "--branch", destination]);
   if (
     !(targetSpec && targetSpec.local.startsWith("resolve/")) &&
@@ -440,17 +438,52 @@ async function prepareMerge(
     base,
     baseRef,
     resolveBranch: destination,
-    stage: stage === "test" ? "test" : "release",
+    stage: typeof stage === "string" && stage.trim() ? stage : "release",
+    mrTarget,
     currentBranch: repository.current || "（分离 HEAD）",
     targetHead,
     localHead,
     sources: await Promise.all(
-      resolved.map(async (source) => ({
-        ...source,
-        head: await git(repository.path, ["rev-parse", source.ref]),
-      })),
+      resolved.map(async source => {
+        const head = await git(repository.path, ["rev-parse", source.ref]);
+        return {...source, head, subject: await git(repository.path, ["log", "-1", "--format=%s", head])};
+      }),
     ),
   };
+}
+
+// 只在独立的临时克隆中试合并，不切换原仓库、不写原索引或分支引用。
+async function checkMerge(plan) {
+  const temporary = await fs.mkdtemp(path.join(tmpdir(), "branchnote-preflight-"));
+  const work = path.join(temporary, "repository");
+  try {
+    await exec(plan.path, ["clone", "--shared", "--no-checkout", "--local", "--", plan.path, work]);
+    await git(work, ["config", "core.hooksPath", path.join(temporary, "no-hooks")]);
+    await git(work, ["config", "user.name", "BranchNote preflight"]);
+    await git(work, ["config", "user.email", "preflight@branchnote.invalid"]);
+    await git(work, ["config", "commit.gpgSign", "false"]);
+    await git(work, ["config", "rerere.enabled", "false"]);
+    await git(work, ["checkout", "--detach", plan.sources[0].head]);
+    const merged = [];
+    const sequence = [...plan.sources.slice(1), {name: plan.base || plan.target, head: plan.targetHead}];
+    for (const source of sequence) {
+      try {
+        await git(work, ["merge", "--no-edit", "--", source.head]);
+        merged.push(source.name);
+      } catch (error) {
+        const files = await unmergedFiles(work);
+        if (!files.length) throw new Error("冲突检查失败：" + describe(error));
+        return {
+          status: "conflict", branch: source.name, files, merged,
+          pending: sequence.slice(merged.length).map(item => item.name),
+          resolveBranch: plan.resolveBranch,
+        };
+      }
+    }
+    return {status: "clean", branch: "", files: [], merged, pending: [], resolveBranch: plan.resolveBranch};
+  } finally {
+    await fs.rm(temporary, {recursive: true, force: true});
+  }
 }
 
 async function unmergedFiles(directory) {
@@ -492,7 +525,7 @@ async function mergeSources(
           logs,
           message: "Git 合并未完成，请查看输出并检查仓库状态。",
         };
-      if (createResolve && !working.startsWith("resolve/")) {
+      if (createResolve && working !== resolveBranch) {
         try {
           await git(directory, ["merge", "--abort"]);
           await git(directory, [
@@ -558,6 +591,9 @@ async function mergeSources(
 }
 
 async function executeMerge(plan, meta = {}) {
+  if (meta.resolveConflicts && plan.create) {
+    plan = {...plan, target: plan.resolveBranch, targetLocal: plan.resolveBranch};
+  }
   await assertReady(plan.path);
   const repository = await readRepository(plan.path);
   if ((repository.current || "（分离 HEAD）") !== plan.currentBranch)
@@ -569,6 +605,16 @@ async function executeMerge(plan, meta = {}) {
   for (const source of plan.sources) {
     if ((await headOf(source.ref)) !== source.head)
       throw new Error(`分支 ${source.name} 已变化，请重新预览后执行`);
+  }
+  if (meta.directSource && plan.sources.length === 1) {
+    const source = plan.sources[0];
+    return {
+      status: "success", workingBranch: shortName(source.ref), target: plan.mrTarget || plan.target,
+      targetMode: plan.targetMode, targetLocal: shortName(source.ref), remoteRef: "",
+      sourceRef: source.ref, sourceHead: source.head, fastForwarded: false,
+      merged: [source.name], pending: [], conflicts: [], message: "",
+      logs: ["无冲突，直接使用功能分支提交 MR"],
+    };
   }
   const localNames = new Set(
     repository.branches.filter((branch) => branch.local).map((branch) => branch.name),
@@ -601,7 +647,7 @@ async function executeMerge(plan, meta = {}) {
   });
   try {
     if (plan.create)
-      await git(plan.path, ["switch", "-c", plan.target, plan.baseRef]);
+      await git(plan.path, ["switch", "-c", plan.target, meta.integrateFirst ? plan.sources[0].ref : plan.baseRef]);
     else if (plan.targetMode === "remote") {
       if (plan.localHead) {
         if (plan.localHead !== plan.targetHead) {
@@ -642,7 +688,8 @@ async function executeMerge(plan, meta = {}) {
       message: describe(error),
     });
   }
-  const result = await mergeSources(plan.path, plan.sources, {
+  const sequence = meta.integrateFirst ? [...plan.sources, {name: plan.mrTarget || plan.base, ref: plan.targetRef}] : plan.sources;
+  const result = await mergeSources(plan.path, sequence, {
     branch: plan.targetMode === "create" ? plan.target : plan.targetLocal,
     resolveBranch: plan.resolveBranch,
     createResolve: true,
@@ -653,6 +700,9 @@ async function executeMerge(plan, meta = {}) {
     await writeSession(plan.path, {
       id: plan.id,
       stage: plan.stage || meta.stage || "release",
+      mrTarget: plan.mrTarget || "",
+      returnBranch: meta.resolveConflicts ? plan.currentBranch : "",
+      sources: plan.sources.map(source => source.name),
       target: plan.target,
       targetMode: plan.targetMode,
       targetLocal: plan.targetLocal,
@@ -681,7 +731,7 @@ async function continueMerge(directory, branch, sources) {
     repository.branches.filter((item) => item.local).map((item) => item.name),
   );
   const remoteRefs = new Set(
-    repository.branches.filter((item) => item.remoteRef).map((item) => item.remoteRef),
+    repository.branches.flatMap((item) => item.remoteRefs || (item.remoteRef ? [item.remoteRef] : [])),
   );
   const resolved = sources.map((name) => ({
     name,
@@ -955,7 +1005,7 @@ async function abortMerge(directory, returnTo) {
   // 界面没传回退分支时，从合并会话里找回目标分支，避免把用户留在 resolve/* 上
   const session = await readSession(root);
   const destination =
-    (typeof returnTo === "string" && returnTo.trim()) || session?.targetLocal || "";
+    (typeof returnTo === "string" && returnTo.trim()) || session?.returnBranch || session?.targetLocal || "";
   const localNames = new Set(
     (
       await git(root, [
@@ -968,7 +1018,7 @@ async function abortMerge(directory, returnTo) {
       .filter(Boolean),
   );
   const removed = [];
-  if (current && current.startsWith("resolve/")) {
+  if (current && (current.startsWith("resolve/") || (session?.branch === current && session?.returnBranch))) {
     if (destination && destination !== current && localNames.has(destination))
       await git(root, ["switch", "--no-guess", "--", destination]).catch(() => {});
     if ((await git(root, ["branch", "--show-current"])) !== current) {
@@ -1128,7 +1178,7 @@ async function mergeRequestUrl(directory, source, target, provider = "", remote 
   return "";
 }
 
-async function pushBranch(directory, branch, remote) {
+async function pushBranch(directory, branch, remote, checkedSource) {
   if (typeof directory !== "string" || !path.isAbsolute(directory))
     throw new Error("推送失败：没有拿到仓库路径，请关闭后重新打开提交对话框");
   if (!branch) throw new Error("推送失败：没有指定要推送的本地分支");
@@ -1136,7 +1186,19 @@ async function pushBranch(directory, branch, remote) {
   const names = new Set(
     repository.branches.filter((item) => item.local).map((item) => item.name),
   );
-  if (!names.has(branch)) throw new Error(`本地分支 ${branch} 不存在，无法推送`);
+  let sourceRef = "refs/heads/" + branch;
+  if (checkedSource) {
+    const refs = repository.branches.flatMap(item => [
+      ...(item.local ? ["refs/heads/" + item.name] : []),
+      ...(item.remoteRefs || (item.remoteRef ? [item.remoteRef] : [])).map(ref => "refs/remotes/" + ref),
+    ]);
+    if (!refs.includes(checkedSource.ref) || shortName(checkedSource.ref) !== branch)
+      throw new Error("推送源分支无效，请重新检查");
+    sourceRef = checkedSource.ref;
+    if (await git(repository.path, ["rev-parse", sourceRef]) !== checkedSource.head)
+      throw new Error("功能分支已有新提交，请重新检查后再提交 MR");
+  } else if (!names.has(branch)) throw new Error("本地分支 " + branch + " 不存在，无法推送");
+
   if (!repository.remotes.length)
     throw new Error("仓库没有配置远程仓库，无法推送");
   const name = remote || repository.remotes[0];
@@ -1148,7 +1210,7 @@ async function pushBranch(directory, branch, remote) {
         "push",
         "--porcelain",
         name,
-        `refs/heads/${branch}:refs/heads/${branch}`,
+        sourceRef + ":refs/heads/" + branch,
       ])
     ).stdout;
     return { remote: name, branch, remoteBranch: branch, output: output.trim() };
@@ -1161,6 +1223,7 @@ module.exports = {
   readRepository,
   fetchRepository,
   prepareMerge,
+  checkMerge,
   executeMerge,
   continueMerge,
   finalizeMerge,

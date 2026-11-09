@@ -2,6 +2,11 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   markMerged,
+  formatRefreshInterval,
+  removeProject,
+  projectTargets,
+  targetState,
+  withStageState,
   markModified,
   markStageMerged,
   parseStore,
@@ -308,4 +313,88 @@ test("旧备份里的 branchLabels 读取时被丢弃", () => {
   });
   const store = parseStore(raw);
   assert.equal("branchLabels" in store.projects[0], false);
+});
+
+test("MR 记录可备份恢复且不冒充已合并，重置会清理 MR", () => {
+  const store = emptyStore();
+  const branch = branchRecord("mr-1", "feature/mr");
+  branch.testMR = {url: "https://git.example.com/a/b/-/merge_requests/1", number: "1", source: "mr/test", target: "origin/test", submittedAt: STAMP};
+  store.branches.push(branch);
+  const restored = parseStore(JSON.stringify(store));
+  assert.equal(restored.branches[0].testMergedAt, null);
+  assert.equal(restored.branches[0].testMR?.number, "1");
+  assert.equal(markModified(restored, "mr-1", "test").branches[0].testMR, undefined);
+  assert.throws(() => parseStore(JSON.stringify({...store, branches: [{...branch, testMR: {...branch.testMR, url: "javascript:alert(1)"}}]})));
+});
+
+test("自定义目标分别记录 MR 和合并状态，重命名不丢历史", () => {
+  const store = emptyStore();
+  store.projects[0].targets = [
+    {id:"test",name:"测试1",branch:"origin/test",color:"#4263dc"},
+    {id:"qa2",name:"测试2",branch:"origin/qa2",color:"#2b8b83"},
+    {id:"release",name:"发布",branch:"origin/release",color:"#8b5bb5"},
+  ];
+  const branch = branchRecord("multi","feature/multi");
+  store.branches = [withStageState(branch, "qa2", {mergedAt:null, target:"origin/qa2", mr:{
+    url:"https://git.example.com/mr/3",number:"3",source:"mr/qa2",target:"origin/qa2",submittedAt:STAMP,
+  }})];
+  const merged = markStageMerged(store,"multi","qa2",THURSDAY);
+  assert.equal(targetState(merged.branches[0],"qa2").mergedAt,STAMP);
+  assert.equal(merged.branches[0].testMergedAt,null);
+  assert.equal(merged.branches[0].releaseMergedAt,null);
+  const renamed = {...merged,projects:merged.projects.map(p=>({...p,targets:p.targets?.map(t=>t.id==="qa2"?{...t,name:"预发布测试"}:t)}))};
+  const restored = parseStore(JSON.stringify(renamed));
+  assert.equal(projectTargets(restored.projects[0])[1].name,"预发布测试");
+  assert.equal(targetState(restored.branches[0],"qa2").mr?.number,"3");
+  assert.equal(targetState(markModified(restored,"multi","qa2").branches[0],"qa2").mergedAt,null);
+  assert.equal(targetState(markModified(restored,"multi","qa2").branches[0],"qa2").mr,undefined);
+  assert.equal(rememberedTarget(withTarget(restored.projects[0],"qa2","origin/new-qa"),"qa2"),"origin/new-qa");
+});
+test("旧项目默认目标保留原分支，自定义目标备份拒绝重复 ID 和错误状态", () => {
+  const base=emptyStore();
+  base.projects[0].testTarget="origin/old-test";
+  assert.equal(projectTargets(base.projects[0])[0].branch,"origin/old-test");
+  assert.equal(projectTargets(base.projects[0])[1].name,"发布");
+  const target={id:"qa",name:"测试",branch:"origin/qa",color:"#4263dc"};
+  assert.throws(()=>parseStore(JSON.stringify({...base,projects:[{...base.projects[0],targets:[target,target]}]})));
+  assert.throws(()=>parseStore(JSON.stringify({...base,projects:[{...base.projects[0],targets:[{...target,color:"invalid"}]}]})));
+  assert.throws(()=>parseStore(JSON.stringify({...base,branches:[{...branchRecord("b","feature/b"),stages:{qa:{mergedAt:"昨天"}}}]})));
+});
+
+test("删除项目只删除所属项目记录，其他项目和分支保留", () => {
+  const store=emptyStore();
+  store.branches=[branchRecord("a","feature/a"),{...branchRecord("b","feature/b"),projectId:"activity"}];
+  const next=removeProject(store,"main");
+  assert.equal(next.projects.length,1);
+  assert.equal(next.projects[0].id,"activity");
+  assert.deepEqual(next.branches.map(branch=>branch.id),["b"]);
+  assert.equal(store.branches.length,2);
+});
+
+test("MR 刷新周期兼容旧数据并随备份保存，拒绝无效周期", () => {
+  const old = {version: 3, projects: [], branches: []};
+  assert.equal(parseStore(JSON.stringify(old)).mrRefreshSeconds, undefined);
+  for (const seconds of [30, 60, 120, 300, 600, 900]) {
+    const store = parseStore(JSON.stringify({...old, mrRefreshSeconds: seconds}));
+    assert.equal(parseStore(JSON.stringify(store)).mrRefreshSeconds, seconds);
+  }
+  for (const seconds of [0, -1, 15, "60", null]) {
+    assert.throws(() => parseStore(JSON.stringify({...old, mrRefreshSeconds: seconds})), /刷新周期/);
+  }
+});
+
+test("刷新周期按秒和分钟格式化展示", () => {
+  assert.equal(formatRefreshInterval(30), "30 秒");
+  assert.equal(formatRefreshInterval(60), "1 分钟");
+  assert.equal(formatRefreshInterval(120), "2 分钟");
+  assert.equal(formatRefreshInterval(300), "5 分钟");
+  assert.equal(formatRefreshInterval(600), "10 分钟");
+  assert.equal(formatRefreshInterval(900), "15 分钟");
+});
+
+test("新项目支持空目标配置，旧项目仍保留兼容目标", () => {
+  const fresh = {...project("new"), targets: []};
+  const loaded = parseStore(JSON.stringify({version: 3, projects: [fresh], branches: []}));
+  assert.deepEqual(projectTargets(loaded.projects[0]), []);
+  assert.equal(projectTargets(project("legacy")).length, 2);
 });

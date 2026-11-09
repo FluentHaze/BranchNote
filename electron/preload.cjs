@@ -13,10 +13,11 @@ contextBridge.exposeInMainWorld("branchNote", {
       resolveBranch,
       options,
     }),
-  executeMerge: (planId) =>
-    ipcRenderer.invoke("repository:execute-merge", planId),
-  pushBranch: (directory, branch, remote) =>
-    ipcRenderer.invoke("repository:push", { directory, branch, remote }),
+  checkMerge: (planId) => ipcRenderer.invoke("repository:check-merge", planId),
+  executeMerge: (planId, confirmed) =>
+    ipcRenderer.invoke("repository:execute-merge", planId, confirmed),
+  pushBranch: (directory, branch, remote, checkedSource) =>
+    ipcRenderer.invoke("repository:push", { directory, branch, remote, checkedSource }),
   mergeState: (directory) =>
     ipcRenderer.invoke("repository:merge-state", directory),
   readConflict: (directory, file) =>
@@ -51,6 +52,7 @@ contextBridge.exposeInMainWorld("branchNote", {
       description,
       remote,
     }),
+  syncMergeRequests: (urls) => ipcRenderer.invoke("repository:sync-mrs", urls),
   listHosts: () => ipcRenderer.invoke("hosts:list"),
   saveHost: (payload) => ipcRenderer.invoke("hosts:save", payload),
   removeHost: (host) => ipcRenderer.invoke("hosts:remove", host),

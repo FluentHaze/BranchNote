@@ -1,10 +1,14 @@
 const { app, BrowserWindow, ipcMain, dialog, shell } = require("electron");
 const path = require("node:path");
 const fs = require("node:fs/promises");
+const { execFile } = require("node:child_process");
+const { promisify } = require("node:util");
+const runApplication = promisify(execFile);
 const {
   readRepository,
   fetchRepository,
   prepareMerge,
+  checkMerge,
   executeMerge,
   continueMerge,
   finalizeMerge,
@@ -28,6 +32,7 @@ const {
   removeHost,
   testHost,
   createMergeRequest,
+  syncMergeRequests,
 } = require("./hosts.cjs");
 
 let window;
@@ -63,21 +68,41 @@ app.whenReady().then(() => {
       return mergePlan;
     },
   );
-  ipcMain.handle("repository:execute-merge", async (_, planId) => {
+  ipcMain.handle("repository:check-merge", async (_, planId) => {
     if (merging || !mergePlan || mergePlan.id !== planId)
-      throw new Error("合并清单已失效，请重新预览");
+      throw new Error("检查清单已失效，请重新检查");
     const plan = mergePlan;
-    mergePlan = null;
     merging = true;
     try {
-      return await executeMerge(plan);
+      const result = await checkMerge(plan);
+      plan.preflight = result;
+      return result;
     } finally {
       merging = false;
     }
   });
-  ipcMain.handle("repository:push", async (_, { directory, branch, remote }) => {
+  ipcMain.handle("repository:execute-merge", async (_, planId, confirmed = false) => {
+    if (merging || !mergePlan || mergePlan.id !== planId)
+      throw new Error("合并清单已失效，请重新预览");
+    const plan = mergePlan;
+    if (!plan.preflight) throw new Error("请先检查冲突");
+    if (plan.preflight.status === "conflict" && confirmed !== true)
+      throw new Error("发现冲突，请确认后再创建 resolve 分支");
+    mergePlan = null;
+    merging = true;
+    try {
+      return await executeMerge(plan, {
+        resolveConflicts: plan.preflight.status === "conflict",
+        directSource: plan.preflight.status === "clean" && plan.sources.length === 1,
+        integrateFirst: true,
+      });
+    } finally {
+      merging = false;
+    }
+  });
+  ipcMain.handle("repository:push", async (_, { directory, branch, remote, checkedSource }) => {
     if (merging) throw new Error("正在合并，请等待当前操作结束");
-    return pushBranch(directory, branch, remote);
+    return pushBranch(directory, branch, remote, checkedSource);
   });
   // 冲突解决：这些操作本身就在合并中间态里进行，不受 merging 锁限制
   ipcMain.handle("repository:merge-state", (_, directory) =>
@@ -86,11 +111,18 @@ app.whenReady().then(() => {
   ipcMain.handle("repository:conflict-read", (_, { directory, file }) =>
     readConflictFile(directory, file),
   );
-  // 交给系统默认编辑器打开（通常是 VS Code / Cursor），便于直接用编辑器解决冲突
+  // 选择应用打开冲突文件，便于直接用编辑器解决冲突
   ipcMain.handle("repository:conflict-open", async (_, { directory, file }) => {
     const target = await workingFile(directory, file);
-    const failure = await shell.openPath(target.absolute);
-    if (failure) throw new Error(`无法打开编辑器：${failure}`);
+    if (process.platform === "win32") {
+      // 显式弹出“打开方式”，避免 .ts 等扩展名被关联到播放器。
+      await runApplication("rundll32.exe", ["shell32.dll,OpenAs_RunDLL", target.absolute], {
+        windowsHide: true,
+      });
+    } else {
+      const failure = await shell.openPath(target.absolute);
+      if (failure) throw new Error("无法打开编辑器：" + failure);
+    }
     return { file: target.file, path: target.absolute };
   });
   ipcMain.handle("repository:conflict-read-file", (_, { directory, file }) =>
@@ -144,6 +176,7 @@ app.whenReady().then(() => {
     (_, { directory, source, target, title, description, remote }) =>
       createMergeRequest({ directory, source, target, title, description, remote }),
   );
+  ipcMain.handle("repository:sync-mrs", (_, urls) => syncMergeRequests(urls));
   // 令牌管理：只把域名与掩码返回给界面，令牌原文不出主进程
   ipcMain.handle("hosts:list", () => listHosts());
   ipcMain.handle("hosts:save", (_, payload) => saveHost(payload || {}));
@@ -211,7 +244,8 @@ app.whenReady().then(() => {
       minWidth: 880,
       minHeight: 650,
       title: "BranchNote",
-      backgroundColor: "#f5f5f7",
+      icon: path.join(__dirname, "../dist/icon.png"),
+      backgroundColor: "#f3f6f7",
       autoHideMenuBar: true,
       webPreferences: {
         preload: path.join(__dirname, "preload.cjs"),

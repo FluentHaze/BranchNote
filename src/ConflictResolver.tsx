@@ -151,7 +151,7 @@ export default function ConflictResolver({
       const target = await window.branchNote.openConflictInEditor(path, active);
       setEditorOpen(true);
       setNotice(
-        `已在编辑器打开 ${target.file}：改完保存，这边会自动同步到下方编辑区；确认内容后点「保存并标记已解决」。`,
+        `已请求打开 ${target.file}：如出现应用选择窗口，请选择代码编辑器。保存后会自动同步到下方编辑区；确认内容后点「保存并标记已解决」。`,
       );
     } catch (reason) {
       setError(message(reason));
@@ -317,7 +317,7 @@ export default function ConflictResolver({
                   className="secondary compact"
                   disabled={busy}
                   onClick={() => void openInEditor()}
-                  title="用系统默认编辑器（VS Code / Cursor 等）打开这个文件，保存后内容会同步到这里，确认后标记已解决"
+                  title="打开文件并选择代码编辑器，保存后内容会同步到这里，确认后标记已解决"
                 >
                   <ExternalLink size={14} />
                   {editorOpen ? "编辑器已打开" : "用编辑器解决"}

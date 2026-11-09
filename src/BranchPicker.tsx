@@ -7,7 +7,6 @@ import {
   UserRound,
 } from "lucide-react";
 import Modal from "./Modal";
-import Select from "./Select";
 import { id, now, type Project, type Store } from "./model";
 import type { Repository } from "./storage";
 
@@ -21,13 +20,11 @@ export default function BranchPicker({
   store,
   commit,
   close,
-  onProjectChange,
 }: {
   project: Project;
   store: Store;
   commit(store: Store, message?: string): Promise<boolean>;
   close(): void;
-  onProjectChange(id: string): void;
 }) {
   const [repository, setRepository] = useState<Repository | null>(null);
   const [busy, setBusy] = useState(false);
@@ -185,18 +182,7 @@ export default function BranchPicker({
     >
       <div className="repository-body" aria-busy={busy}>
         <div className="repository-top">
-          <label>
-            所属项目
-            <Select
-              label="所属项目"
-              value={project.id}
-              disabled={busy}
-              options={store.projects
-                .filter((item) => !item.archived)
-                .map((item) => ({ value: item.id, label: item.name }))}
-              onChange={onProjectChange}
-            />
-          </label>
+          <div className="repository-project"><span>所属项目</span><strong>{project.name}</strong></div>
           <div className="repository-location">
             <span>本地仓库</span>
             <strong title={repository?.path || path}>
@@ -368,7 +354,7 @@ export default function BranchPicker({
               <span className="field-hint">
                 已选择 {chosen.length} 个分支
                 {chosen.length
-                  ? "，添加后可在功能分支列表中提交到发布分支"
+                  ? "，添加后可在功能分支列表中选择目标提交 MR"
                   : "，已添加过的分支不会重复出现"}
               </span>
               <span className="spacer" />

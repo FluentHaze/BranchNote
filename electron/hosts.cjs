@@ -373,7 +373,46 @@ async function createMergeRequest({
   }
 }
 
+async function syncMergeRequests(urls) {
+  if (!Array.isArray(urls) || urls.some(url => typeof url !== "string"))
+    throw new Error("MR 链接格式不正确");
+  const data = await readFile();
+  return Promise.all([...new Set(urls)].map(async url => {
+    try {
+      const link = new URL(url);
+      if (!["https:", "http:"].includes(link.protocol)) throw new Error("MR 链接格式不正确");
+      const entry = data.hosts.find(item => item.host === link.host.toLowerCase());
+      if (!entry) throw new Error("请在设置里为 " + link.host + " 配置访问令牌");
+      const marker = entry.provider === "gitlab" ? "/-/merge_requests/" : "/pull/";
+      const parts = link.pathname.split(marker);
+      const project = decodeURIComponent(parts[0].slice(1));
+      const number = parts[1]?.replace(/\/$/, "");
+      if (parts.length !== 2 || !project || !/^\d+$/.test(number || "") ||
+          (entry.provider === "github" && project.split("/").length !== 2))
+        throw new Error("无法识别 MR 链接，请检查平台类型与链接");
+      const endpoint = entry.provider === "gitlab"
+        ? "/projects/" + encodeURIComponent(project) + "/merge_requests/" + number
+        : "/repos/" + project.split("/").map(encodeURIComponent).join("/") + "/pulls/" + number;
+      const result = await request(apiBase(entry) + endpoint, {
+        headers: requestHeaders(entry, decryptToken(entry)), redirect: "error",
+      });
+      if (!result.ok) throw new Error(describeStatus(entry, result.status, result.body));
+      const body = result.body;
+      const mergedAt = body?.merged_at;
+      const state = body?.state === "merged" || mergedAt ? "merged"
+        : body?.state === "closed" ? "closed"
+        : ["open", "opened", "locked"].includes(body?.state) ? "opened" : null;
+      if (!state || (state === "merged" && (!mergedAt || !Number.isFinite(Date.parse(mergedAt)))))
+        throw new Error("平台返回了无法识别的 MR 状态");
+      return {url, state, mergedAt: state === "merged" ? mergedAt : null};
+    } catch (error) {
+      return {url, error: error.message};
+    }
+  }));
+}
+
 module.exports = {
+  syncMergeRequests,
   listHosts,
   saveHost,
   removeHost,

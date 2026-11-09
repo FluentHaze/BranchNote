@@ -14,6 +14,7 @@ interface Props {
   label: string;
   disabled?: boolean;
   className?: string;
+  searchable?: boolean;
 }
 
 export default function Select({
@@ -25,12 +26,16 @@ export default function Select({
   label,
   disabled,
   className = "",
+  searchable = false,
 }: Props) {
   const [internal, setInternal] = useState(
     defaultValue ?? options[0]?.value ?? "",
   );
   const selected = value ?? internal;
   const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const search = useRef<HTMLInputElement>(null);
+  const filtered = options.filter(option => option.label.toLowerCase().includes(query.trim().toLowerCase()));
   const trigger = useRef<HTMLButtonElement>(null);
   const panel = useRef<HTMLDivElement>(null);
   const listId = useId();
@@ -67,12 +72,24 @@ export default function Select({
     menu.style.bottom = useAbove
       ? `${window.innerHeight - rect.top + 6}px`
       : "auto";
+    setQuery("");
     menu.showPopover();
+    if (searchable) {
+      search.current?.focus();
+      return;
+    }
     const buttons = menu.querySelectorAll<HTMLButtonElement>('[role="option"]');
     const index = options.findIndex((option) => option.value === selected);
     buttons[last ? buttons.length - 1 : Math.max(index, 0)]?.focus();
   }
   function keydown(event: KeyboardEvent<HTMLDivElement>) {
+    if (event.nativeEvent.isComposing) return;
+    if (event.target === search.current && event.key === "Enter") {
+      event.preventDefault();
+      panel.current?.querySelector<HTMLButtonElement>('[role="option"]')?.click();
+      return;
+    }
+    if (event.target === search.current && !["ArrowDown", "ArrowUp", "Escape", "Tab"].includes(event.key)) return;
     const buttons = [
       ...panel.current!.querySelectorAll<HTMLButtonElement>('[role="option"]'),
     ];
@@ -80,7 +97,7 @@ export default function Select({
     let next = index;
     if (event.key === "ArrowDown") next = (index + 1) % buttons.length;
     else if (event.key === "ArrowUp")
-      next = (index - 1 + buttons.length) % buttons.length;
+      next = index < 0 ? buttons.length - 1 : (index - 1 + buttons.length) % buttons.length;
     else if (event.key === "Home") next = 0;
     else if (event.key === "End") next = buttons.length - 1;
     else if (event.key === "Escape") {
@@ -94,7 +111,7 @@ export default function Select({
     } else if (event.key === " ") {
       return;
     } else if (event.key.length === 1 && !event.ctrlKey && !event.metaKey) {
-      const found = options.findIndex(
+      const found = filtered.findIndex(
         (option, i) =>
           i > index &&
           option.label.toLowerCase().startsWith(event.key.toLowerCase()),
@@ -102,7 +119,7 @@ export default function Select({
       next =
         found >= 0
           ? found
-          : options.findIndex((option) =>
+          : filtered.findIndex((option) =>
               option.label.toLowerCase().startsWith(event.key.toLowerCase()),
             );
     } else return;
@@ -138,15 +155,28 @@ export default function Select({
       </button>
       <div
         ref={panel}
-        id={listId}
         popover="auto"
-        role="listbox"
         aria-label={label}
         className="select-menu"
         onToggle={(event) => setOpen(event.newState === "open")}
         onKeyDown={keydown}
       >
-        {options.map((option) => (
+        {searchable && (
+          <div className="select-search">
+            <input
+              ref={search}
+              type="search"
+              value={query}
+              onChange={event => setQuery(event.target.value)}
+              placeholder="搜索分支名称…"
+              aria-label={"搜索" + label}
+              aria-controls={listId}
+              autoComplete="off"
+            />
+          </div>
+        )}
+        <div id={listId} role="listbox" aria-label={label}>
+        {filtered.map((option) => (
           <button
             type="button"
             role="option"
@@ -165,6 +195,8 @@ export default function Select({
             )}
           </button>
         ))}
+        </div>
+        {filtered.length === 0 && <p className="select-empty" role="status">没有匹配的分支</p>}
       </div>
     </span>
   );

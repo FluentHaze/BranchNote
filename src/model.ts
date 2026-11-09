@@ -1,3 +1,14 @@
+export interface MRTarget {
+  id: string;
+  name: string;
+  branch: string;
+  color: string;
+}
+export interface TargetState {
+  mergedAt: string | null;
+  target?: string;
+  mr?: BranchMR;
+}
 export interface Project {
   id: string;
   name: string;
@@ -5,12 +16,21 @@ export interface Project {
   color: string;
   archived: boolean;
   repositoryPath?: string;
+  targets?: MRTarget[];
   // 两个阶段各自记住上次用过的分支，避免每次重新挑
   testTarget?: string;
   releaseTarget?: string;
-  // 目标分支受保护（平台禁止直接推送）时，合并自动改为：集成分支 + MR
+  // 兼容旧备份字段；当前所有目标均通过 MR 合入
   testProtected?: boolean;
   releaseProtected?: boolean;
+}
+export interface BranchMR {
+  state?: "opened" | "closed" | "merged";
+  url: string;
+  number: string;
+  source: string;
+  target: string;
+  submittedAt: string;
 }
 export interface Branch {
   id: string;
@@ -24,10 +44,18 @@ export interface Branch {
   // 最近一次合入的发布分支与时间
   releaseTarget?: string;
   releaseMergedAt: string | null;
+  stages?: Record<string, TargetState>;
+  testMR?: BranchMR;
+  releaseMR?: BranchMR;
   createdAt: string;
   updatedAt: string;
 }
+export const mrRefreshIntervals = [30, 60, 120, 300, 600, 900] as const;
+export const formatRefreshInterval = (seconds: number) =>
+  seconds < 60 ? seconds + " 秒" : seconds / 60 + " 分钟";
+
 export interface Store {
+  mrRefreshSeconds?: number;
   version: 3;
   projects: Project[];
   branches: Branch[];
@@ -51,12 +79,31 @@ export function weekNumber(date = new Date()): number {
 export const dateOnly = (date = new Date()) =>
   `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 
-export type Stage = "test" | "release";
+export type Stage = string;
+
+export function projectTargets(project: Project): MRTarget[] {
+  return project.targets ?? [
+    {id: "test", name: "测试", branch: project.testTarget || "", color: "#4263dc"},
+    {id: "release", name: "发布", branch: project.releaseTarget || "", color: "#8b5bb5"},
+  ];
+}
+
+export function targetState(branch: Branch, stage: Stage): TargetState {
+  if (stage === "test") return {mergedAt: branch.testMergedAt, target: branch.testTarget, mr: branch.testMR};
+  if (stage === "release") return {mergedAt: branch.releaseMergedAt, target: branch.releaseTarget, mr: branch.releaseMR};
+  return branch.stages?.[stage] ?? {mergedAt: null};
+}
+
+export function withStageState(branch: Branch, stage: Stage, state: TargetState): Branch {
+  if (stage === "test") return {...branch, testMergedAt: state.mergedAt, testTarget: state.target, ...(state.mr || branch.testMR ? {testMR: state.mr} : {})};
+  if (stage === "release") return {...branch, releaseMergedAt: state.mergedAt, releaseTarget: state.target, ...(state.mr || branch.releaseMR ? {releaseMR: state.mr} : {})};
+  return {...branch, stages: {...branch.stages, [stage]: state}};
+}
 
 // 两个阶段各自记住上次用过的分支：测试分支通常是 test/qa，发布分支通常是 release/week-XX
 // resolve/** 只是冲突处理时的临时分支，不作为下次的默认目标
 export function rememberedTarget(project: Project, stage: Stage): string {
-  const value = (stage === "test" ? project.testTarget : project.releaseTarget) || "";
+  const value = projectTargets(project).find(target => target.id === stage)?.branch || "";
   return value.startsWith("resolve/") ? "" : value;
 }
 export function withTarget(
@@ -65,6 +112,7 @@ export function withTarget(
   target: string,
 ): Project {
   const value = target.trim();
+  if (project.targets) return {...project, targets: project.targets.map(item => item.id === stage ? {...item, branch: value} : item)};
   return stage === "test"
     ? { ...project, testTarget: value }
     : { ...project, releaseTarget: value };
@@ -72,87 +120,35 @@ export function withTarget(
 
 // 合并完成后的台账写回：按阶段记下目标分支与本次合入时间
 export function markMerged(
-  store: Store,
-  projectId: string,
-  names: string[],
-  stage: Stage,
-  target: string,
-  when = new Date(),
+  store: Store, projectId: string, names: string[], stage: Stage,
+  target: string, when = new Date(),
 ): Store {
   const timestamp = when.toISOString();
-  const destination = target.trim();
-  const targets = new Set(names);
-  return {
-    ...store,
-    branches: store.branches.map((branch) =>
-      branch.projectId === projectId && targets.has(branch.name)
-        ? {
-            ...branch,
-            ...(stage === "test"
-              ? {
-                  testMergedAt: timestamp,
-                  testTarget: destination || branch.testTarget,
-                }
-              : {
-                  releaseMergedAt: timestamp,
-                  releaseTarget: destination || branch.releaseTarget,
-                }),
-            updatedAt: timestamp,
-          }
-        : branch,
-    ),
-  };
+  const selected = new Set(names);
+  return {...store, branches: store.branches.map(branch =>
+    branch.projectId === projectId && selected.has(branch.name)
+      ? {...withStageState(branch, stage, {...targetState(branch, stage),
+          mergedAt: timestamp, target: target.trim() || targetState(branch, stage).target}), updatedAt: timestamp}
+      : branch)};
 }
 
-// 列表里的手动标记：把某个阶段标成已合并（沿用已记录的目标分支）
-export function markStageMerged(
-  store: Store,
-  branchId: string,
-  stage: Stage,
-  when = new Date(),
-): Store {
+export function markStageMerged(store: Store, branchId: string, stage: Stage, when = new Date()): Store {
   const timestamp = when.toISOString();
-  return {
-    ...store,
-    branches: store.branches.map((branch) =>
-      branch.id === branchId
-        ? {
-            ...branch,
-            ...(stage === "test"
-              ? { testMergedAt: timestamp }
-              : { releaseMergedAt: timestamp }),
-            updatedAt: timestamp,
-          }
-        : branch,
-    ),
-  };
+  return {...store, branches: store.branches.map(branch => branch.id === branchId
+    ? {...withStageState(branch, stage, {...targetState(branch, stage), mergedAt: timestamp}), updatedAt: timestamp}
+    : branch)};
 }
 
-// 分支有了新修改：重置对应阶段的合并状态，回到待合并
 export function markModified(
-  store: Store,
-  branchId: string,
-  stage: Stage | "both" = "both",
-  when = new Date(),
+  store: Store, branchId: string, stage: Stage | "both" = "both", when = new Date(),
 ): Store {
-  const timestamp = when.toISOString();
-  return {
-    ...store,
-    branches: store.branches.map((branch) =>
-      branch.id === branchId
-        ? {
-            ...branch,
-            ...(stage === "test" || stage === "both"
-              ? { testMergedAt: null }
-              : {}),
-            ...(stage === "release" || stage === "both"
-              ? { releaseMergedAt: null }
-              : {}),
-            updatedAt: timestamp,
-          }
-        : branch,
-    ),
-  };
+  return {...store, branches: store.branches.map(branch => {
+    if (branch.id !== branchId) return branch;
+    const stages = stage === "both" ? ["test", "release", ...Object.keys(branch.stages || {})] : [stage];
+    let next = branch;
+    for (const key of stages) next = withStageState(next, key, {...targetState(next, key), mergedAt: null, mr: undefined});
+    return {...next, updatedAt: when.toISOString()};
+  })};
 }
 
 function object(value: unknown): value is Record<string, unknown> {
@@ -170,6 +166,29 @@ function validTime(value: unknown): boolean {
 function optionalTime(value: unknown): boolean {
   return value === undefined || value === null || validTime(value);
 }
+function validMR(value: unknown): boolean {
+  return value === undefined || (
+    object(value) &&
+    strings(value, ["url", "number", "source", "target", "submittedAt"]) &&
+    /^https?:\/\//.test(value.url) &&
+    (value.state === undefined || typeof value.state === "string" && ["opened", "closed", "merged"].includes(value.state)) &&
+    validTime(value.submittedAt)
+  );
+}
+function validTargets(value: unknown): boolean {
+  return value === undefined || (
+    Array.isArray(value) &&
+    value.every(target => object(target) && strings(target, ["id", "name", "branch", "color"]) &&
+      target.id.trim() && target.id !== "both" && target.name.trim() && /^#[0-9a-f]{6}$/i.test(target.color)) &&
+    new Set(value.map(target => target.id)).size === value.length
+  );
+}
+function validStages(value: unknown): boolean {
+  return value === undefined || (object(value) && Object.entries(value).every(([key, state]) =>
+    key.trim() && object(state) && (state.mergedAt === null || validTime(state.mergedAt)) &&
+    optionalTarget(state.target) && validMR(state.mr)));
+}
+
 function optionalTarget(value: unknown): boolean {
   return value === undefined || (typeof value === "string" && value.trim() !== "");
 }
@@ -192,6 +211,7 @@ export function parseStore(raw: string): Store {
         object(p) &&
         strings(p, ["id", "name", "note", "color"]) &&
         p.name.trim() &&
+        validTargets(p.targets) &&
         /^#[0-9a-f]{6}$/i.test(p.color as string) &&
         typeof p.archived === "boolean" &&
         (p.repositoryPath === undefined ||
@@ -213,6 +233,8 @@ export function parseStore(raw: string): Store {
         b.description.trim() &&
         validTime(b.createdAt) &&
         validTime(b.updatedAt) &&
+        validMR(b.testMR) && validMR(b.releaseMR) &&
+        validStages(b.stages) &&
         optionalTime(b.testMergedAt) &&
         optionalTime(b.releaseMergedAt) &&
         optionalTarget(b.testTarget) &&
@@ -224,13 +246,18 @@ export function parseStore(raw: string): Store {
     )
   )
     throw new Error("分支数据格式错误");
+  if (value.mrRefreshSeconds !== undefined &&
+      (typeof value.mrRefreshSeconds !== "number" || !mrRefreshIntervals.some(seconds => seconds === value.mrRefreshSeconds)))
+    throw new Error("MR 刷新周期格式错误");
   const source = value as unknown as {
+    mrRefreshSeconds?: number;
     version: number;
     projects: Project[];
     branches: Record<string, unknown>[];
   };
   const store: Store = {
     version: 3,
+    ...(source.mrRefreshSeconds !== undefined ? {mrRefreshSeconds: source.mrRefreshSeconds} : {}),
     projects: source.projects.map((item) => {
       // 旧数据里的 branchLabels（已废弃，只保留分支备注）在读取时丢弃
       const { branchLabels: _legacy, ...rest } = item as Project & {
@@ -258,6 +285,9 @@ export function parseStore(raw: string): Store {
         (branch.releaseMergedAt as string | null | undefined) ??
         (branch.mergedAt as string | null | undefined) ??
         null,
+      ...(branch.stages ? {stages: branch.stages as Record<string, TargetState>} : {}),
+      ...(branch.testMR ? {testMR: branch.testMR as BranchMR} : {}),
+      ...(branch.releaseMR ? {releaseMR: branch.releaseMR as BranchMR} : {}),
       createdAt: branch.createdAt as string,
       updatedAt: branch.updatedAt as string,
     })),
@@ -276,4 +306,8 @@ export function parseStore(raw: string): Store {
   )
     throw new Error("分支引用的项目不存在");
   return store;
+}
+
+export function removeProject(store: Store, projectId: string): Store {
+  return {...store, projects: store.projects.filter(p => p.id !== projectId), branches: store.branches.filter(b => b.projectId !== projectId)};
 }

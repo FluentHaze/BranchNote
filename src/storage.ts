@@ -50,13 +50,23 @@ export interface MergePlan {
   base: string;
   baseRef: string;
   resolveBranch: string;
-  stage: "test" | "release";
+  stage: string;
   currentBranch: string;
   targetHead: string;
   localHead: string | null;
-  sources: { name: string; ref: string; head: string }[];
+  sources: { name: string; ref: string; head: string; subject?: string }[];
+}
+export interface PreflightResult {
+  status: "clean" | "conflict";
+  branch: string;
+  files: string[];
+  merged: string[];
+  pending: string[];
+  resolveBranch: string;
 }
 export interface MergeResult {
+  sourceRef?: string;
+  sourceHead?: string;
   status: "success" | "failed" | "conflict";
   workingBranch: string;
   target: string;
@@ -80,8 +90,10 @@ export interface ContinueResult {
   logs: string[];
 }
 export interface MergeSession {
+  mrTarget?: string;
+  sources?: string[];
   id: string;
-  stage: "test" | "release";
+  stage: string;
   target: string;
   targetMode: "local" | "remote" | "create";
   targetLocal: string;
@@ -154,6 +166,12 @@ export interface HostTestResult {
   account: string;
   message: string;
 }
+export interface MRStatusResult {
+  url: string;
+  state?: "opened" | "closed" | "merged";
+  mergedAt?: string | null;
+  error?: string;
+}
 export interface MergeRequestResult {
   status: "created" | "exists" | "no-token" | "unsupported" | "failed";
   provider?: "gitlab" | "github" | "other";
@@ -173,13 +191,15 @@ declare global {
         target: string,
         sources: string[],
         resolveBranch: string,
-        options?: { create?: boolean; base?: string; stage?: "test" | "release" },
+        options?: { create?: boolean; base?: string; stage?: string; mrTarget?: string },
       ): Promise<MergePlan>;
-      executeMerge(planId: string): Promise<MergeResult>;
+      checkMerge(planId: string): Promise<PreflightResult>;
+      executeMerge(planId: string, confirmed?: boolean): Promise<MergeResult>;
       pushBranch(
         path: string,
         branch: string,
         remote?: string,
+        checkedSource?: {ref: string; head: string},
       ): Promise<PushResult>;
       mergeState(path: string): Promise<MergeState>;
       readConflict(path: string, file: string): Promise<ConflictFile>;
@@ -222,6 +242,7 @@ declare global {
         description?: string,
         remote?: string,
       ): Promise<MergeRequestResult>;
+      syncMergeRequests(urls: string[]): Promise<MRStatusResult[]>;
       listHosts(): Promise<HostCredential[]>;
       saveHost(payload: {
         host: string;

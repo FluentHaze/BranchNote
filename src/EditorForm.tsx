@@ -75,6 +75,7 @@ export default function EditorForm({
         name,
         description,
         note: text("note"),
+        stages: previous?.projectId === projectId ? previous.stages : undefined,
         updatedAt: timestamp,
         // 换项目后原来的合并记录不再成立
         testMergedAt:
@@ -105,6 +106,7 @@ export default function EditorForm({
         color: text("color"),
         archived: current?.archived || false,
         repositoryPath: text("repositoryPath") || undefined,
+        targets: current ? current.targets : [],
         testTarget: current?.testTarget,
         releaseTarget: current?.releaseTarget,
       };
@@ -147,6 +149,12 @@ export default function EditorForm({
             />
           </label>
         )}
+        {editor.kind === "project" && editor.value && (
+          <div className="project-editor-overview">
+            <strong>{store.branches.filter(branch => branch.projectId === editor.value?.id).length} 个功能分支</strong>
+            <span>项目名称、颜色和说明用于组织本地跟进记录；MR 目标在项目页单独配置。</span>
+          </div>
+        )}
         <label>
           {editor.kind === "branch" ? "分支名称" : "项目名称"}
           <input
@@ -156,7 +164,7 @@ export default function EditorForm({
             maxLength={200}
             defaultValue={value?.name}
             placeholder={
-              editor.kind === "branch" ? "feature/your-next-idea" : "例如：主项目"
+              editor.kind === "branch" ? "输入分支名称" : "输入项目名称"
             }
           />
         </label>
@@ -169,7 +177,7 @@ export default function EditorForm({
                 required
                 maxLength={500}
                 defaultValue={editor.value?.description}
-                placeholder="这个分支实现了什么？"
+                placeholder="填写分支的改动内容"
               />
             </label>
             {(editor.value?.testMergedAt || editor.value?.releaseMergedAt) && (
@@ -187,7 +195,7 @@ export default function EditorForm({
         {editor.kind === "project" && (
           <fieldset className="color-picker">
             <legend>项目颜色</legend>
-            {colors.map((color) => (
+            {(editor.value?.color && !colors.includes(editor.value.color) ? [...colors, editor.value.color] : colors).map((color) => (
               <label
                 key={color}
                 style={{ "--project-color": color } as React.CSSProperties}
@@ -205,12 +213,15 @@ export default function EditorForm({
           </fieldset>
         )}
         <label>
-          备注 <span className="optional">选填</span>
+          <span className="form-label-inline">
+          {editor.kind === "branch" ? "改动备注" : "备注"}
+            <span className="optional">选填</span>
+          </span>
           <textarea
             name="note"
             rows={3}
             defaultValue={value?.note}
-            placeholder="留下一点需要记住的事…"
+            placeholder={editor.kind === "branch" ? "说明本次改了什么，会直接显示在功能分支列表中" : "填写项目说明或需要记录的信息"}
           />
         </label>
         {error && (

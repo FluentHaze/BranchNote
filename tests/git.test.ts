@@ -19,6 +19,7 @@ import type {
   MergeState,
   FetchResult,
   PushResult,
+  PreflightResult,
 } from "../src/storage.ts";
 
 const require = createRequire(import.meta.url);
@@ -30,13 +31,15 @@ const service = require("../electron/git.cjs") as {
     target: string,
     sources: string[],
     resolveBranch: string,
-    options?: { create?: boolean; base?: string; stage?: "test" | "release" },
+    options?: { create?: boolean; base?: string; stage?: string; mrTarget?: string },
   ): Promise<MergePlan>;
-  executeMerge(plan: MergePlan): Promise<MergeResult>;
+  checkMerge(plan: MergePlan): Promise<PreflightResult>;
+  executeMerge(plan: MergePlan, meta?: {resolveConflicts?: boolean; directSource?: boolean; integrateFirst?: boolean}): Promise<MergeResult>;
   pushBranch(
     directory: string,
     branch: string,
     remote?: string,
+    checkedSource?: {ref: string; head: string},
   ): Promise<PushResult>;
   readMergeState(directory: string): Promise<MergeState>;
   readConflictFile(directory: string, file: string): Promise<ConflictFile>;
@@ -887,4 +890,187 @@ test("两边都要按三方合并，公共内容不会重复", async () => {
   } finally {
     await f.cleanup();
   }
+});
+
+test("MR 批量汇总及冲突恢复不修改功能和目标分支", async () => {
+  const f = await fixture();
+  try {
+    const targetHead = await f.git("rev-parse", "release");
+    const a = await f.change("feature/mr-a", "shared.txt", "first\n");
+    const b = await f.change("feature/mr-b", "shared.txt", "second\n");
+    await f.git("switch", "release");
+    const plan = await service.prepareMerge(f.directory, "mr/test-batch",
+      ["feature/mr-a", "feature/mr-b"], "", {create: true, base: "release", stage: "test", mrTarget: "origin/release"});
+    const result = await service.executeMerge(plan);
+    assert.equal(result.status, "conflict");
+    assert.match(result.workingBranch, /^resolve\//);
+    const state = await service.readMergeState(f.directory);
+    assert.equal(state.session?.mrTarget, "origin/release");
+    assert.equal(state.session?.targetLocal, "mr/test-batch");
+    await service.takeConflictSide(f.directory, "shared.txt", "theirs");
+    await service.commitResolution(f.directory, "");
+    const continued = await service.continueMerge(f.directory, result.workingBranch, result.pending);
+    assert.equal(continued.status, "success");
+    await service.finalizeMerge(f.directory, "mr/test-batch", result.workingBranch);
+    assert.equal(await f.git("rev-parse", "release"), targetHead);
+    assert.equal(await f.git("rev-parse", "feature/mr-a"), a);
+    assert.equal(await f.git("rev-parse", "feature/mr-b"), b);
+    assert.equal(await readText(path.join(f.directory, "shared.txt")), "second\n");
+  } finally { await f.cleanup(); }
+});
+
+test("MR 可以从非首选远程的目标分支建立集成分支", async () => {
+  const f = await fixture();
+  try {
+    await f.git("remote", "add", "origin", f.directory);
+    await f.git("remote", "add", "gitlab", f.directory);
+    const head = await f.git("rev-parse", "release");
+    await f.git("update-ref", "refs/remotes/origin/release", head);
+    await f.git("update-ref", "refs/remotes/gitlab/release", head);
+    await f.change("feature/secondary", "secondary.txt", "feature\n");
+    await f.git("switch", "release");
+    const plan = await service.prepareMerge(f.directory, "mr/secondary", ["feature/secondary"], "",
+      {create:true, base:"gitlab/release", stage:"release", mrTarget:"gitlab/release"});
+    assert.equal(plan.baseRef, "refs/remotes/gitlab/release");
+    assert.equal((await service.executeMerge(plan)).status, "success");
+    assert.equal(await f.git("rev-parse", "release"), head);
+  } finally { await f.cleanup(); }
+});
+
+test("提交前冲突检查不切换当前分支、不改写功能分支或工作区", async () => {
+  const f = await fixture();
+  try {
+    const base = await f.git("rev-parse", "release");
+    const a = await f.change("feature/check-a", "shared.txt", "one\n");
+    const b = await f.change("feature/check-b", "shared.txt", "two\n");
+    const plan = await service.prepareMerge(f.directory, "mr/check", ["feature/check-a", "feature/check-b"], "",
+      {create:true, base:"release", stage:"test", mrTarget:"origin/release"});
+    const refs = await f.git("show-ref");
+    const index = await f.git("ls-files", "--stage");
+    const result = await service.checkMerge(plan);
+    assert.equal(result.status, "conflict");
+    assert.deepEqual(result.files, ["shared.txt"]);
+    assert.equal(result.branch, "feature/check-b");
+    assert.equal(await f.git("branch", "--show-current"), "feature/check-b");
+    assert.equal(await f.git("show-ref"), refs);
+    assert.equal(await f.git("ls-files", "--stage"), index);
+    assert.equal(await f.git("status", "--porcelain"), "");
+    assert.equal(await readText(path.join(f.directory,"shared.txt")), "two\n");
+    // 用户确认后才在 resolve 分支上执行真实合并。
+    const actual = await service.executeMerge(plan, {resolveConflicts:true});
+    assert.equal(actual.status, "conflict");
+    assert.equal(actual.targetLocal, plan.resolveBranch);
+    assert.equal(actual.workingBranch, plan.resolveBranch);
+    assert.equal(await f.git("rev-parse", "feature/check-a"), a);
+    assert.equal(await f.git("rev-parse", "feature/check-b"), b);
+    assert.equal(await f.git("rev-parse", "release"), base);
+    await service.takeConflictSide(f.directory, "shared.txt", "theirs");
+    await service.commitResolution(f.directory, "");
+    const continued = await service.continueMerge(f.directory, actual.workingBranch, actual.pending);
+    assert.equal(continued.status, "success");
+    assert.equal(await f.git("status","--porcelain"), "");
+    assert.equal(await f.git("rev-parse", "feature/check-a"), a);
+    assert.equal(await f.git("rev-parse", "feature/check-b"), b);
+  } finally { await f.cleanup(); }
+});
+test("无冲突的批量检查不会创建 mr 或 resolve 分支", async () => {
+  const f = await fixture();
+  try {
+    await f.change("feature/clean-a","a.txt","a\n");
+    await f.change("feature/clean-b","b.txt","b\n");
+    await f.git("switch","release");
+    const plan = await service.prepareMerge(f.directory,"mr/clean",["feature/clean-a","feature/clean-b"],"",
+      {create:true,base:"release",stage:"release",mrTarget:"origin/release"});
+    const refs=await f.git("show-ref");
+    assert.equal((await service.checkMerge(plan)).status,"clean");
+    assert.equal(await f.git("show-ref"),refs);
+    assert.equal(await f.git("branch","--show-current"),"release");
+    assert.equal(await f.git("status","--porcelain"),"");
+  } finally { await f.cleanup(); }
+});
+
+test("确认创建 resolve 后仍可放弃，返回原功能分支且清理临时分支", async () => {
+  const f = await fixture();
+  try {
+    await f.change("feature/abort-a","shared.txt","a\n");
+    const head = await f.change("feature/abort-b","shared.txt","b\n");
+    const plan = await service.prepareMerge(f.directory,"mr/abort-check",["feature/abort-a","feature/abort-b"],"",
+      {create:true,base:"release",mrTarget:"origin/release"});
+    assert.equal((await service.checkMerge(plan)).status,"conflict");
+    const actual = await service.executeMerge(plan,{resolveConflicts:true});
+    const aborted = await service.abortMerge(f.directory,"");
+    assert.equal(aborted.branch,"feature/abort-b");
+    assert.ok(aborted.removed.includes(actual.workingBranch));
+    assert.equal(await f.git("status","--porcelain"),"");
+    assert.equal(await f.git("rev-parse","feature/abort-b"),head);
+  } finally { await f.cleanup(); }
+});
+
+test("自定义 MR 目标 ID 在冲突恢复会话中保留", async () => {
+  const f = await fixture();
+  try {
+    await f.change("feature/custom-a","shared.txt","a\n");
+    await f.change("feature/custom-b","shared.txt","b\n");
+    const plan=await service.prepareMerge(f.directory,"mr/custom",["feature/custom-a","feature/custom-b"],"",
+      {create:true,base:"release",stage:"qa-second",mrTarget:"origin/qa2"});
+    assert.equal(plan.stage,"qa-second");
+    assert.equal((await service.checkMerge(plan)).status,"conflict");
+    await service.executeMerge(plan,{resolveConflicts:true});
+    assert.equal((await service.readMergeState(f.directory)).session?.stage,"qa-second");
+  } finally { await f.cleanup(); }
+});
+
+test("单分支无冲突直接作为 MR 源分支，不创建整合分支也不切换工作区", async () => {
+  const f=await fixture();
+  try {
+    const head=await f.change("feature/direct","direct.txt","direct\n");
+    const before=await f.git("show-ref");
+    const plan=await service.prepareMerge(f.directory,"mr/unused",["feature/direct"],"resolve",{create:true,base:"release",mrTarget:"origin/release"});
+    assert.equal((await service.checkMerge(plan)).status,"clean");
+    const result=await service.executeMerge(plan,{directSource:true,integrateFirst:true});
+    assert.equal(result.targetLocal,"feature/direct");
+    assert.equal(result.sourceRef,"refs/heads/feature/direct");
+    assert.equal(result.sourceHead,head);
+    assert.equal(await f.git("show-ref"),before);
+    assert.equal(await f.git("branch","--show-current"),"feature/direct");
+    assert.equal(await f.git("status","--porcelain"),"");
+  } finally { await f.cleanup(); }
+});
+test("远程单分支可直接推送到目标远程，不创建同名本地分支", async () => {
+  const f=await remoteFixture();
+  try {
+    const plan=await service.prepareMerge(f.work,"mr/unused",["origin/feature/remote-only"],"resolve",
+      {create:true,base:"origin/release/week-45",mrTarget:"origin/release/week-45"});
+    assert.equal((await service.checkMerge(plan)).status,"clean");
+    const result=await service.executeMerge(plan,{directSource:true,integrateFirst:true});
+    await service.pushBranch(f.work,result.targetLocal,"origin",{ref:result.sourceRef!,head:result.sourceHead!});
+    assert.equal(await gitIn(f.work)("branch","--list","feature/remote-only"),"");
+    assert.equal(await gitIn(f.work)("status","--porcelain"),"");
+  } finally { await f.cleanup(); }
+});
+test("多分支先整合，再在用户指定分支处理目标冲突，功能分支保持不变", async () => {
+  const f=await fixture();
+  try {
+    const a=await f.change("feature/combined-a","shared.txt","feature\n");
+    const b=await f.change("feature/combined-b","b.txt","b\n");
+    await f.git("switch","release");
+    await writeFile(path.join(f.directory,"shared.txt"),"target\n");
+    await f.git("add",".");
+    await f.git("commit","-m","target");
+    const target=await f.git("rev-parse","HEAD");
+    const plan=await service.prepareMerge(f.directory,"mr/batch","feature/combined-a,feature/combined-b".split(","),"fixes/review",
+      {create:true,base:"release",mrTarget:"release"});
+    const checked=await service.checkMerge(plan);
+    assert.equal(checked.status,"conflict");
+    assert.equal(checked.branch,"release");
+    const result=await service.executeMerge(plan,{resolveConflicts:true,integrateFirst:true});
+    assert.equal(result.workingBranch,"fixes/review");
+    assert.equal(await readText(path.join(f.directory,"b.txt")),"b\n");
+    await service.takeConflictSide(f.directory,"shared.txt","ours");
+    await service.commitResolution(f.directory,"");
+    assert.equal((await service.continueMerge(f.directory,result.workingBranch,result.pending)).status,"success");
+    assert.equal(await f.git("rev-parse","feature/combined-a"),a);
+    assert.equal(await f.git("rev-parse","feature/combined-b"),b);
+    assert.equal(await f.git("rev-parse","release"),target);
+  } finally { await f.cleanup(); }
 });
