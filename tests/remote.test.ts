@@ -18,7 +18,10 @@ const service = require("../electron/git.cjs") as {
     repo: string;
     provider: string;
   } | null;
-  remoteInfo(directory: string): Promise<{
+  remoteInfo(
+    directory: string,
+    options?: { remote?: string; hosts?: string[] },
+  ): Promise<{
     name: string;
     url: string;
     host: string;
@@ -30,6 +33,7 @@ const service = require("../electron/git.cjs") as {
     source: string,
     target: string,
     provider?: string,
+    remote?: string,
   ): Promise<string>;
 };
 
@@ -146,6 +150,50 @@ test("GitHub 远程给 compare 链接，本地裸仓库不给链接", async () =
     await git("remote", "set-url", "origin", path.join(directory, "origin.git"));
     assert.equal(await service.remoteInfo(directory), null);
     assert.equal(await service.mergeRequestUrl(directory, "a", "b"), "");
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+// 仓库同时有多个远程时：origin 是本地裸仓库、github 是真实托管平台，
+// 不能因为偏好 origin 就放弃建 PR
+test("多远程时跳过本地裸仓库，用 github 远程生成 PR 链接", async () => {
+  const directory = await mkdtemp(path.join(tmpdir(), "branchnote-remote-"));
+  try {
+    const git = gitIn(directory);
+    await git("init", "--initial-branch=main");
+    await git("remote", "add", "origin", path.join(directory, "origin.git"));
+    await git("remote", "add", "github", "https://github.com/me/app.git");
+    const info = await service.remoteInfo(directory);
+    assert.equal(info?.name, "github");
+    assert.equal(info?.provider, "github");
+    assert.equal(
+      await service.mergeRequestUrl(directory, "mr/release-1", "release"),
+      "https://github.com/me/app/compare/release...mr%2Frelease-1?expand=1",
+    );
+    // 显式指定 origin（本地裸仓库）时不生成链接，避免把 MR 指到错误平台
+    assert.equal(await service.remoteInfo(directory, { remote: "origin" }), null);
+    assert.equal(await service.mergeRequestUrl(directory, "a", "b", "", "origin"), "");
+    // 指定 github 就用 github
+    assert.equal(
+      (await service.remoteInfo(directory, { remote: "github" }))?.name,
+      "github",
+    );
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test("多个托管远程时优先选已配置令牌的域名", async () => {
+  const directory = await mkdtemp(path.join(tmpdir(), "branchnote-remote-"));
+  try {
+    const git = gitIn(directory);
+    await git("init", "--initial-branch=main");
+    await git("remote", "add", "origin", "https://github.com/me/app.git");
+    await git("remote", "add", "gitlab", "https://gitlab.company.com/team/app.git");
+    assert.equal((await service.remoteInfo(directory))?.name, "origin");
+    const info = await service.remoteInfo(directory, { hosts: ["gitlab.company.com"] });
+    assert.equal(info?.name, "gitlab");
   } finally {
     await rm(directory, { recursive: true, force: true });
   }

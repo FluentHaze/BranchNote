@@ -211,14 +211,21 @@ export default function SubmitDialog({
   const targetLocal = remoteName ? target.slice(remoteName.length + 1) : target;
   const stageLabel = stage === "test" ? "测试分支" : "发布分支";
 
+  // 同名分支可能同时存在于多个远程，逐个列出才能把目标指定到托管平台那一份
+  const remoteRefOptions = [
+    ...new Set(
+      branches.flatMap((branch) =>
+        branch.remoteRefs?.length
+          ? branch.remoteRefs
+          : branch.remoteRef
+            ? [branch.remoteRef]
+            : [],
+      ),
+    ),
+  ].map((ref) => ({ value: ref, label: `${ref}（远程）` }));
   const targetOptions = [
     { value: NEW_TARGET, label: "新建一个分支…" },
-    ...branches
-      .filter((branch) => branch.remoteRef)
-      .map((branch) => ({
-        value: branch.remoteRef!,
-        label: `${branch.remoteRef}（远程）`,
-      })),
+    ...remoteRefOptions,
     ...branches
       .filter((branch) => branch.local && !branch.remoteRef)
       .map((branch) => ({
@@ -230,12 +237,7 @@ export default function SubmitDialog({
     ...branches
       .filter((branch) => branch.local)
       .map((branch) => ({ value: branch.name, label: `${branch.name}（本地）` })),
-    ...branches
-      .filter((branch) => branch.remoteRef)
-      .map((branch) => ({
-        value: branch.remoteRef!,
-        label: `${branch.remoteRef}（远程）`,
-      })),
+    ...remoteRefOptions,
   ];
 
   // 目标分支优先沿用上次的选择，其次按阶段惯例自动挑一个
@@ -419,21 +421,40 @@ export default function SubmitDialog({
         state: "pending",
         message: "",
       });
-      const remote = repository?.remotes[0];
-      if (push && remote)
-        await pushNow(context.targetLocal, `${remote}/${context.targetLocal}`);
-      await createMr(context.targetLocal, context.mrTarget, merged);
+      // 集成分支推到「目标分支所在的远程」，MR 也在那个平台上创建
+      // （仓库可能有多个远程，比如 origin 是本地裸仓库、github 是真实托管平台）
+      const mrRemote = remoteOfTarget(context.mrTarget);
+      if (push && mrRemote)
+        await pushNow(context.targetLocal, `${mrRemote}/${context.targetLocal}`);
+      await createMr(context.targetLocal, context.mrTarget, merged, mrRemote);
     } else if (push && context.remoteRef)
       await pushNow(context.targetLocal, context.remoteRef);
   }
 
+  // 目标值形如 origin/release，取它归属的远程名
+  function remoteOfTarget(target: string) {
+    return (
+      (repository?.remotes || []).find((name) => target.startsWith(`${name}/`)) || ""
+    );
+  }
+
   // 真正调接口建 MR / PR：有令牌就直接建，没有就只准备预填创建页当兜底
-  async function createMr(source: string, target: string, merged: string[]) {
+  async function createMr(
+    source: string,
+    target: string,
+    merged: string[],
+    remote: string,
+  ) {
     if (!window.branchNote) return;
     let pageUrl = "";
     try {
       pageUrl =
-        (await window.branchNote.mergeRequestUrl?.(path, source, target)) || "";
+        (await window.branchNote.mergeRequestUrl?.(
+          path,
+          source,
+          target,
+          remote || undefined,
+        )) || "";
     } catch {
       pageUrl = "";
     }
@@ -465,6 +486,7 @@ export default function SubmitDialog({
         target,
         title,
         description,
+        remote || undefined,
       );
       setMrInfo((prev) =>
         prev

@@ -105,6 +105,9 @@ async function readRepository(directory) {
       });
     const locals = new Map();
     const remotes = new Map();
+    // 同名分支可能在多个远程上都有（例如 origin 是本地裸仓库、github 是托管平台），
+    // 全部记下来，界面上才能把目标分支指定到某一个远程
+    const refsByBranch = new Map();
     const remoteNames = new Set();
     let defaultBranch = "";
     for (const record of records) {
@@ -127,6 +130,8 @@ async function readRepository(directory) {
       const remote = record.short.slice(0, cut);
       const name = record.short.slice(cut + 1);
       remoteNames.add(remote);
+      if (!refsByBranch.has(name)) refsByBranch.set(name, []);
+      refsByBranch.get(name).push(record.short);
       // 存在多个远程时优先展示 origin 的同名分支
       if (!remotes.has(name) || remote === "origin")
         remotes.set(name, { ...record, remote, name, remoteRef: record.short });
@@ -144,6 +149,10 @@ async function readRepository(directory) {
           local: !!local,
           remote: remote?.remote || null,
           remoteRef: remote?.remoteRef || null,
+          // 这个分支在哪些远程上存在（origin 排最前），用于选目标分支
+          remoteRefs: (refsByBranch.get(name) || []).sort((a, b) =>
+            a === `origin/${name}` ? -1 : b === `origin/${name}` ? 1 : a.localeCompare(b),
+          ),
           localCommit: local?.commit || null,
           remoteCommit: remote?.commit || null,
           commit: local?.commit || remote?.commit || "",
@@ -1061,28 +1070,54 @@ function parseRemoteUrl(value) {
   };
 }
 
-// 读默认远程（优先 origin）的地址信息，供 MR / PR 创建与设置页预填使用
-async function remoteInfo(directory) {
+// 读远程地址信息，供 MR / PR 创建与设置页预填使用。
+// remote 指定时以它为准（目标分支在哪个远程，就去哪个平台建 MR）；
+// 没指定时跳过本地裸仓库路径，优先选配了令牌的域名，其次 origin，再其次能识别的托管平台。
+async function remoteInfo(directory, options = {}) {
   const root = await repositoryRoot(directory);
   const remotes = (await git(root, ["remote"]).catch(() => ""))
     .split(/\r?\n/)
     .map((name) => name.trim())
     .filter(Boolean);
   if (!remotes.length) return null;
-  const name = remotes.includes("origin") ? "origin" : remotes[0];
-  let url = "";
-  try {
-    url = (await git(root, ["remote", "get-url", name])).trim();
-  } catch {
-    return null;
+
+  const inspect = async (name) => {
+    let url = "";
+    try {
+      url = (await git(root, ["remote", "get-url", name])).trim();
+    } catch {
+      return null;
+    }
+    const parsed = parseRemoteUrl(url);
+    if (!parsed) return null;
+    return { name, url, ...parsed };
+  };
+
+  const wanted = typeof options.remote === "string" ? options.remote.trim() : "";
+  if (wanted && remotes.includes(wanted)) {
+    // 明确指定就只用它：哪怕它是本地路径，也如实返回 null，由调用方给手动提示
+    return await inspect(wanted);
   }
-  const parsed = parseRemoteUrl(url);
-  if (!parsed) return null;
-  return { name, url, ...parsed };
+
+  const candidates = [];
+  for (const name of remotes) {
+    const info = await inspect(name);
+    if (info) candidates.push(info);
+  }
+  if (!candidates.length) return null;
+
+  const hosts = Array.isArray(options.hosts)
+    ? options.hosts.map((item) => String(item).toLowerCase())
+    : [];
+  const byToken = candidates.find((item) => hosts.includes(item.host.toLowerCase()));
+  if (byToken) return byToken;
+  const origin = candidates.find((item) => item.name === "origin");
+  if (origin) return origin;
+  return candidates.find((item) => item.provider !== "other") || candidates[0];
 }
 
-async function mergeRequestUrl(directory, source, target, provider = "") {
-  const info = await remoteInfo(directory).catch(() => null);
+async function mergeRequestUrl(directory, source, target, provider = "", remote = "") {
+  const info = await remoteInfo(directory, { remote }).catch(() => null);
   if (!info) return "";
   // 自建 GitLab 常用自定义域名，平台类型以设置里的声明为准
   const platform = provider || info.provider;

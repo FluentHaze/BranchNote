@@ -40,15 +40,16 @@ contextBridge.exposeInMainWorld("branchNote", {
     ipcRenderer.invoke("repository:conflict-commit", { directory, message }),
   abortConflict: (directory, returnTo) =>
     ipcRenderer.invoke("repository:conflict-abort", { directory, returnTo }),
-  mergeRequestUrl: (directory, source, target) =>
-    ipcRenderer.invoke("repository:mr-url", { directory, source, target }),
-  createMergeRequest: (directory, source, target, title, description) =>
+  mergeRequestUrl: (directory, source, target, remote) =>
+    ipcRenderer.invoke("repository:mr-url", { directory, source, target, remote }),
+  createMergeRequest: (directory, source, target, title, description, remote) =>
     ipcRenderer.invoke("repository:create-mr", {
       directory,
       source,
       target,
       title,
       description,
+      remote,
     }),
   listHosts: () => ipcRenderer.invoke("hosts:list"),
   saveHost: (payload) => ipcRenderer.invoke("hosts:save", payload),

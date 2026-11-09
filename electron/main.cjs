@@ -115,20 +115,22 @@ app.whenReady().then(() => {
   );
   // 受保护目标分支：生成预填好的 MR / PR 创建页链接（GitLab / GitHub）
   // 自建 GitLab 的域名不一定含 gitlab，能匹配到设置里的域名就用它声明的平台类型
-  ipcMain.handle("repository:mr-url", async (_, { directory, source, target }) => {
+  ipcMain.handle("repository:mr-url", async (_, { directory, source, target, remote }) => {
     let provider = "";
     try {
-      const info = await remoteInfo(directory);
+      const hosts = await listHosts();
+      const info = await remoteInfo(directory, {
+        remote,
+        hosts: hosts.map((item) => item.host),
+      });
       if (info) {
-        const saved = (await listHosts()).find(
-          (item) => item.host === info.host.toLowerCase(),
-        );
+        const saved = hosts.find((item) => item.host === info.host.toLowerCase());
         if (saved) provider = saved.provider;
       }
     } catch {
       // 拿不到仓库或令牌配置时退回按域名猜测
     }
-    return mergeRequestUrl(directory, source, target, provider);
+    return mergeRequestUrl(directory, source, target, provider, remote);
   });
   // 在系统浏览器里打开（用于 MR 创建页 / 已创建的 MR）
   ipcMain.handle("repository:open-url", (_, url) => {
@@ -139,8 +141,8 @@ app.whenReady().then(() => {
   // 用访问令牌调接口直接创建 MR / PR；失败时返回原因，由界面给兜底链接
   ipcMain.handle(
     "repository:create-mr",
-    (_, { directory, source, target, title, description }) =>
-      createMergeRequest({ directory, source, target, title, description }),
+    (_, { directory, source, target, title, description, remote }) =>
+      createMergeRequest({ directory, source, target, title, description, remote }),
   );
   // 令牌管理：只把域名与掩码返回给界面，令牌原文不出主进程
   ipcMain.handle("hosts:list", () => listHosts());

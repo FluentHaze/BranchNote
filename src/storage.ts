@@ -8,6 +8,8 @@ export interface RepositoryBranch {
   remote: string | null;
   /** 远程引用短名，例如 origin/feature/login */
   remoteRef: string | null;
+  /** 同名分支在所有远程上的引用，例如 ["origin/main", "github/main"]；origin 排最前 */
+  remoteRefs?: string[];
   localCommit: string | null;
   remoteCommit: string | null;
   commit: string;
@@ -209,6 +211,7 @@ declare global {
         path: string,
         source: string,
         target: string,
+        remote?: string,
       ): Promise<string>;
       openUrl(url: string): Promise<void>;
       createMergeRequest(
@@ -217,6 +220,7 @@ declare global {
         target: string,
         title?: string,
         description?: string,
+        remote?: string,
       ): Promise<MergeRequestResult>;
       listHosts(): Promise<HostCredential[]>;
       saveHost(payload: {

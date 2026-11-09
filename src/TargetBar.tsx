@@ -56,24 +56,34 @@ export default function TargetBar({
   const releaseTarget = project.releaseTarget || "";
   const branches = repository?.branches || [];
 
-  const optionsFor = (stage: Stage) => [
-    {
-      value: NEW_TARGET,
-      label: `新建${stage === "test" ? "测试" : "发布"}分支（合并时创建）…`,
-    },
-    ...branches
-      .filter((branch) => branch.remoteRef)
-      .map((branch) => ({
-        value: branch.remoteRef!,
-        label: `${branch.remoteRef}（远程）`,
-      })),
-    ...branches
-      .filter((branch) => branch.local && !branch.remoteRef)
-      .map((branch) => ({
-        value: branch.name,
-        label: `${branch.name}（本地）`,
-      })),
-  ];
+  const optionsFor = (stage: Stage) => {
+    // 同名分支可能同时存在于多个远程（origin 本地裸仓库 + github 托管仓库），
+    // 要逐个列出来，否则选不到托管平台那一份，自然建不了 PR
+    const remoteOptions = [
+      ...new Set(
+        branches.flatMap((branch) =>
+          branch.remoteRefs?.length
+            ? branch.remoteRefs
+            : branch.remoteRef
+              ? [branch.remoteRef]
+              : [],
+        ),
+      ),
+    ].map((ref) => ({ value: ref, label: `${ref}（远程）` }));
+    return [
+      {
+        value: NEW_TARGET,
+        label: `新建${stage === "test" ? "测试" : "发布"}分支（合并时创建）…`,
+      },
+      ...remoteOptions,
+      ...branches
+        .filter((branch) => branch.local && !branch.remoteRef)
+        .map((branch) => ({
+          value: branch.name,
+          label: `${branch.name}（本地）`,
+        })),
+    ];
+  };
 
   // 打开编辑：读取仓库分支。
   // 注意：busy 不能进依赖数组——setBusy 会触发清理把 active 置 false，

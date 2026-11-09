@@ -240,19 +240,30 @@ async function findExisting(entry, token, info, source, target) {
 }
 
 // 用接口直接创建 MR / PR；返回结构固定的结果对象，前端据此决定展示按钮还是兜底链接
-async function createMergeRequest({ directory, source, target, title, description } = {}) {
+async function createMergeRequest({
+  directory,
+  source,
+  target,
+  title,
+  description,
+  remote,
+} = {}) {
   if (!source || !target)
     return { status: "failed", message: "缺少源分支或目标分支，无法创建合并请求" };
+  const data = await readFile();
   let info;
   try {
-    info = await remoteInfo(directory);
+    // 目标分支所在的远程优先；没有就用配了令牌的域名，避免误选本地裸仓库
+    info = await remoteInfo(directory, {
+      remote,
+      hosts: data.hosts.map((item) => item.host),
+    });
   } catch (error) {
     return { status: "failed", message: error.message };
   }
   if (!info)
     return { status: "unsupported", message: "没有找到可识别的远程仓库地址（需要 https 或 ssh 形式）" };
 
-  const data = await readFile();
   const saved = data.hosts.find((item) => item.host === info.host.toLowerCase());
   // 设置里显式声明过平台类型时以它为准：自建 GitLab 常用 git.company.com 这类域名
   const provider = saved ? saved.provider : info.provider;
