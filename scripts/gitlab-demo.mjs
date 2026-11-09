@@ -202,6 +202,15 @@ async function main() {
     // origin/HEAD 在不同 git 版本里的短名可能是 origin 或 origin/HEAD，都要排除
     .filter((ref) => ref !== "origin" && ref !== "origin/HEAD" && ref.includes("/"));
   if (!refs.length) fail("本地克隆里没有可推送的分支");
+  // 空项目里「第一个推上去的分支」会被 GitLab 直接设为默认分支，并套用实例级的默认分支保护，
+  // 所以必须让 main 先推，否则 feature/xxx 会莫名其妙变成默认 + 受保护。
+  const DEFAULT_BRANCH = refs.includes("origin/main")
+    ? "main"
+    : refs.includes("origin/master")
+      ? "master"
+      : "";
+  const rank = (ref) => (ref === `origin/${DEFAULT_BRANCH}` ? 0 : 1);
+  refs.sort((a, b) => rank(a) - rank(b));
 
   log(`正在推送 ${refs.length} 个分支到 GitLab …`);
   const failed = [];
@@ -229,6 +238,38 @@ async function main() {
     );
   }
   if (failed.length) log(`! ${failed.length} 个分支推送失败（其余已成功），详见上面的 ✗ 行`);
+
+  // ---- 3.5 把默认分支纠正成 main，并清掉被连带自动保护的分支 ----
+  if (DEFAULT_BRANCH) {
+    const current = await api("GET", `/projects/${project.id}`);
+    if (current.ok && current.data.default_branch !== DEFAULT_BRANCH) {
+      const fixed = await api("PUT", `/projects/${project.id}`, {
+        default_branch: DEFAULT_BRANCH,
+      });
+      log(
+        fixed.ok
+          ? `✓ 默认分支已从 ${current.data.default_branch || "（空）"} 改为 ${DEFAULT_BRANCH}`
+          : `! 设置默认分支失败（${fixed.status}）：${describe(fixed)}`,
+      );
+    } else if (current.ok) {
+      log(`✓ 默认分支是 ${DEFAULT_BRANCH}`);
+    }
+  }
+  const protectedNow = await api(
+    "GET",
+    `/projects/${project.id}/protected_branches?per_page=100`,
+  );
+  if (protectedNow.ok) {
+    for (const item of protectedNow.data || []) {
+      // release 后面会按本脚本的规则重新保护；默认分支保持平台默认保护即可
+      if (PROTECTED.includes(item.name) || item.name === DEFAULT_BRANCH) continue;
+      const removed = await api(
+        "DELETE",
+        `/projects/${project.id}/protected_branches/${encodeURIComponent(item.name)}`,
+      );
+      if (removed.ok) log(`（清理）${item.name} 只是被动成为默认分支才受保护，已解除`);
+    }
+  }
 
   // origin 指到 GitLab（不带令牌），提交身份用 GitLab 账号
   await git(TARGET, ["remote", "set-url", "origin", httpUrl]);
@@ -262,6 +303,18 @@ async function main() {
     log(`✓ GitLab 上现有分支（${names.length}）：${names.join("、") || "（空）"}`);
     if (!names.length)
       fail("接口回读显示项目仍是空的：分支没有推上去，请看上面的 ✗ 原因");
+    const finalProject = await api("GET", `/projects/${project.id}`);
+    const guards = await api(
+      "GET",
+      `/projects/${project.id}/protected_branches?per_page=100`,
+    );
+    const guardNames = guards.ok
+      ? (guards.data || []).map((item) => item.name)
+      : [];
+    log(
+      `✓ 默认分支：${finalProject.ok ? finalProject.data.default_branch : "?"}` +
+        `｜受保护分支：${guardNames.join("、") || "（无）"}`,
+    );
   } else {
     log(`! 回读远端分支失败（${remote.status}）：${describe(remote)}`);
   }
