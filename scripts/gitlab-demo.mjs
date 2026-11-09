@@ -199,7 +199,8 @@ async function main() {
   )
     .split(/\r?\n/)
     .filter(Boolean)
-    .filter((ref) => ref !== "origin/HEAD");
+    // origin/HEAD 在不同 git 版本里的短名可能是 origin 或 origin/HEAD，都要排除
+    .filter((ref) => ref !== "origin" && ref !== "origin/HEAD" && ref.includes("/"));
   if (!refs.length) fail("本地克隆里没有可推送的分支");
 
   log(`正在推送 ${refs.length} 个分支到 GitLab …`);
