@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, dialog, shell } = require("electron");
+const { app, BrowserWindow, ipcMain, dialog, shell, nativeTheme } = require("electron");
 const path = require("node:path");
 const fs = require("node:fs/promises");
 const { execFile } = require("node:child_process");
@@ -41,6 +41,8 @@ let merging = false;
 const dataPath = () => path.join(app.getPath("userData"), "branchnote.json");
 
 app.whenReady().then(() => {
+  // 页面目前使用浅色主题，原生标题栏和系统对话框与其保持一致。
+  nativeTheme.themeSource = "light";
   ipcMain.handle("repository:pick", async () => {
     const result = await dialog.showOpenDialog(window, {
       title: "选择本地 Git 仓库",
