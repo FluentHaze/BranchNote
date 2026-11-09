@@ -24,6 +24,9 @@ const API = `${BASE}/api/v4`;
 const SOURCE = process.env.SOURCE_REPO || "C:/Users/FF/Desktop/github/TestBranchNote";
 const TARGET = process.env.DEMO_DIR || "C:/Users/FF/Desktop/github/GitLabDemo";
 const PROJECT_PATH = process.env.DEMO_PROJECT || "branchnote-demo";
+// 若已经在网页上手工建好项目，可以只给地址，跳过创建接口：
+//   DEMO_REPO_URL=https://gitlab.com/用户名/仓库.git node scripts/gitlab-demo.mjs
+const REPO_URL = (process.env.DEMO_REPO_URL || "").trim();
 const PROJECT_NAME = "BranchNote Demo";
 const PROTECTED = ["release"];
 
@@ -60,6 +63,23 @@ async function api(method, endpoint, body) {
   return { ok: response.ok, status: response.status, data, text };
 }
 
+// GitLab 的 message 可能是字符串，也可能是 { 字段: [提示] }，统一压成一行可读文本
+function describe(result) {
+  const { data, text } = result;
+  if (!data) return String(text || "").slice(0, 400) || "（无响应内容）";
+  if (typeof data === "string") return data.slice(0, 400);
+  if (typeof data.message === "string") return data.message;
+  if (data.message && typeof data.message === "object") {
+    const parts = Object.entries(data.message).map(([field, messages]) => {
+      const list = Array.isArray(messages) ? messages.join("、") : String(messages);
+      return `${field}: ${list}`;
+    });
+    if (parts.length) return parts.join("；");
+  }
+  if (data.error) return typeof data.error === "string" ? data.error : JSON.stringify(data.error);
+  return JSON.stringify(data).slice(0, 400);
+}
+
 async function git(directory, args, options = {}) {
   return (
     await run("git", ["-C", directory, ...args], {
@@ -83,30 +103,63 @@ async function main() {
     fail(
       me.status === 401
         ? "令牌无效或已过期（401）。请确认复制完整，且勾选了 api scope。"
-        : `读取账号失败（${me.status}）：${me.data?.message || me.text.slice(0, 200)}`,
+        : `读取账号失败（${me.status}）：${describe(me)}`,
     );
   const user = me.data;
   log(`账号：@${user.username}（${user.name || "未填姓名"}）`);
+  if (user.can_create_project === false)
+    log("! 这个账号当前没有建项目权限（can_create_project = false）");
 
-  // ---- 1. 建项目（已存在就复用）----
-  let project = null;
-  const created = await api("POST", "/projects", {
-    name: PROJECT_NAME,
-    path: PROJECT_PATH,
-    visibility: "private",
-    initialize_with_readme: false,
-  });
-  if (created.ok) project = created.data;
-  else if (/already been taken|has already been taken/i.test(created.text)) {
+  // ---- 1. 建项目 / 复用已有项目 ----
+  // 先查一次：项目可能上一轮已经建好了（比如上次卡在推送那一步）
+  const lookup = async () => {
     const found = await api(
       "GET",
       `/projects/${encodeURIComponent(`${user.username}/${PROJECT_PATH}`)}`,
     );
-    if (!found.ok) fail(`项目已存在但读取失败（${found.status}）：${found.text.slice(0, 200)}`);
+    return found.ok ? found.data : null;
+  };
+
+  let project = null;
+  if (REPO_URL) {
+    const found = await api("GET", `/projects/${encodeURIComponent(REPO_URL)}`);
+    if (!found.ok)
+      fail(
+        `按地址读取项目失败（${found.status}）：${describe(found)}\n` +
+          `请确认地址是 ${BASE}/<用户名>/<仓库> 或带 .git 的克隆地址。`,
+      );
     project = found.data;
-    log(`项目已存在，复用：${project.path_with_namespace}`);
+    log(`使用指定项目：${project.path_with_namespace}`);
   } else {
-    fail(`创建项目失败（${created.status}）：${created.data?.message || created.text.slice(0, 300)}`);
+    project = await lookup();
+  }
+  if (project) log(`项目已就绪：${project.path_with_namespace}`);
+  else {
+    const created = await api("POST", "/projects", {
+      name: PROJECT_NAME,
+      path: PROJECT_PATH,
+      visibility: "private",
+      initialize_with_readme: false,
+    });
+    if (created.ok) project = created.data;
+    else {
+      // 400 / 409 时再看一眼：多半是同名项目占用了路径，直接复用
+      project = await lookup();
+      if (project) log(`项目已存在，复用：${project.path_with_namespace}`);
+      else {
+        const owned = await api("GET", "/projects?owned=true&per_page=100&simple=true");
+        const names = owned.ok
+          ? (owned.data || []).map((item) => item.path_with_namespace)
+          : [];
+        fail(
+          `创建项目失败（${created.status}）：${describe(created)}\n` +
+            `账号状态：state=${user.state || "?"}，confirmed=${user.confirmed_at ? "已确认" : "未确认"}\n` +
+            `你名下已有项目（${names.length}）：${names.join("、") || "（无）"}\n` +
+            `提示：如果提示 path 已被占用，说明这个用户名下已有同名项目但接口读不到；` +
+            `可以换一个名字重跑，例如 DEMO_PROJECT=branchnote-demo2。`,
+        );
+      }
+    }
   }
   const projectUrl = project.web_url;
   const httpUrl = project.http_url_to_repo.replace(/\.git$/, ".git");
@@ -195,7 +248,7 @@ async function main() {
     if (result.ok) log(`✓ 已保护分支 ${name}（禁止直接 push，只能走 MR）`);
     else if (result.status === 409 || /already protected/i.test(result.text))
       log(`✓ 分支 ${name} 已经是受保护状态`);
-    else log(`! 保护 ${name} 失败（${result.status}）：${result.text.slice(0, 160)}`);
+    else log(`! 保护 ${name} 失败（${result.status}）：${describe(result)}`);
   }
 
   // ---- 5. 以 GitLab 的接口回读为准，确认分支真的在远端 ----
@@ -209,7 +262,7 @@ async function main() {
     if (!names.length)
       fail("接口回读显示项目仍是空的：分支没有推上去，请看上面的 ✗ 原因");
   } else {
-    log(`! 回读远端分支失败（${remote.status}）：${remote.text.slice(0, 160)}`);
+    log(`! 回读远端分支失败（${remote.status}）：${describe(remote)}`);
   }
 
   // ---- 6. 打印下一步 ----
