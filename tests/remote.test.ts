@@ -29,6 +29,7 @@ const service = require("../electron/git.cjs") as {
     directory: string,
     source: string,
     target: string,
+    provider?: string,
   ): Promise<string>;
 };
 
@@ -109,6 +110,23 @@ test("remoteInfo 读取 origin，并生成 GitLab MR 创建页", async () => {
     assert.equal(
       url,
       "https://gitlab.company.com/team/app/-/merge_requests/new?merge_request[source_branch]=mr%2Ftest-1&merge_request[target_branch]=test",
+    );
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test("自建 GitLab 域名可由设置声明平台类型，兜底创建页也按 GitLab 生成", async () => {
+  const directory = await mkdtemp(path.join(tmpdir(), "branchnote-remote-"));
+  try {
+    const git = gitIn(directory);
+    await git("init", "--initial-branch=main");
+    await git("remote", "add", "origin", "http://localhost:8929/root/app.git");
+    assert.equal((await service.remoteInfo(directory))?.provider, "other");
+    assert.equal(await service.mergeRequestUrl(directory, "mr/test-1", "test"), "");
+    assert.equal(
+      await service.mergeRequestUrl(directory, "mr/test-1", "test", "gitlab"),
+      "http://localhost:8929/root/app/-/merge_requests/new?merge_request[source_branch]=mr%2Ftest-1&merge_request[target_branch]=test",
     );
   } finally {
     await rm(directory, { recursive: true, force: true });

@@ -15,7 +15,8 @@
     "test:ui": "node scripts/ui-test.cjs",
     "test:stage": "node scripts/ui-stage-test.cjs",
     "pack:win": "npm run build && electron-builder --win nsis",
-    "pack:mac": "npm run build && electron-builder --mac dmg"
+    "pack:mac": "npm run build && electron-builder --mac dmg",
+    "gitlab:demo": "node scripts/gitlab-demo.mjs"
   },
   "dependencies": {
     "lucide-react": "^0.468.0",

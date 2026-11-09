@@ -1081,12 +1081,14 @@ async function remoteInfo(directory) {
   return { name, url, ...parsed };
 }
 
-async function mergeRequestUrl(directory, source, target) {
+async function mergeRequestUrl(directory, source, target, provider = "") {
   const info = await remoteInfo(directory).catch(() => null);
   if (!info) return "";
-  if (info.provider === "gitlab")
+  // 自建 GitLab 常用自定义域名，平台类型以设置里的声明为准
+  const platform = provider || info.provider;
+  if (platform === "gitlab")
     return `${info.web}/-/merge_requests/new?merge_request[source_branch]=${encodeURIComponent(source)}&merge_request[target_branch]=${encodeURIComponent(target)}`;
-  if (info.provider === "github")
+  if (platform === "github")
     return `${info.web}/compare/${encodeURIComponent(target)}...${encodeURIComponent(source)}?expand=1`;
   return "";
 }
