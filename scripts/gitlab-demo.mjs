@@ -127,27 +127,55 @@ async function main() {
     log(`复用已有克隆：${TARGET}`);
   }
 
-  // ---- 3. 推全部分支（单次命令带令牌，不写进 config）----
-  log("正在推送分支到 GitLab …");
-  try {
-    await git(TARGET, [
-      "push",
-      withToken(httpUrl),
-      "refs/remotes/origin/*:refs/heads/*",
-    ]);
-  } catch (error) {
-    const raw = String(error.stderr || error.message || "");
-    if (/already exists|non-fast-forward|rejected/i.test(raw))
-      log("（部分分支已存在，忽略：继续后续步骤）");
-    else
-      fail(
-        `推送失败：${raw
-          .replace(TOKEN, "***")
-          .split("\n")
-          .slice(0, 6)
-          .join("\n")}`,
-      );
+  // ---- 3. 推全部分支：逐条推送，失败立刻看得见（不再整体吞掉报错）----
+  // 复跑时 release 可能已是受保护分支，先临时解除，推完再重新保护
+  for (const name of PROTECTED) {
+    const removed = await api(
+      "DELETE",
+      `/projects/${project.id}/protected_branches/${encodeURIComponent(name)}`,
+    );
+    if (removed.ok) log(`（复跑）临时解除 ${name} 的保护以便推送`);
   }
+
+  const refs = (
+    await git(TARGET, [
+      "for-each-ref",
+      "--format=%(refname:short)",
+      "refs/remotes/origin",
+    ])
+  )
+    .split(/\r?\n/)
+    .filter(Boolean)
+    .filter((ref) => ref !== "origin/HEAD");
+  if (!refs.length) fail("本地克隆里没有可推送的分支");
+
+  log(`正在推送 ${refs.length} 个分支到 GitLab …`);
+  const failed = [];
+  for (const ref of refs) {
+    const name = ref.replace(/^origin\//, "");
+    try {
+      await git(TARGET, [
+        "push",
+        "--force",
+        withToken(httpUrl),
+        `${ref}:refs/heads/${name}`,
+      ]);
+      log(`  ✓ ${name}`);
+    } catch (error) {
+      const raw = String(error.stderr || error.message || "")
+        .replace(TOKEN, "***")
+        .trim();
+      failed.push({ name, raw });
+      log(`  ✗ ${name}：${raw.split(/\r?\n/).slice(-2).join(" ").slice(0, 220)}`);
+    }
+  }
+  if (failed.length === refs.length) {
+    fail(
+      `全部分支推送失败，GitLab 上没有可用的测试分支。\n最常见原因：令牌缺少 write_repository scope，或该账号对这个项目没有写权限。\n最后一条错误：\n${failed[0].raw.split(/\r?\n/).slice(0, 8).join("\n")}`,
+    );
+  }
+  if (failed.length) log(`! ${failed.length} 个分支推送失败（其余已成功），详见上面的 ✗ 行`);
+
   // origin 指到 GitLab（不带令牌），提交身份用 GitLab 账号
   await git(TARGET, ["remote", "set-url", "origin", httpUrl]);
   await git(TARGET, ["config", "user.name", user.name || user.username]);
@@ -156,8 +184,6 @@ async function main() {
     "user.email",
     user.public_email || user.email || `${user.username}@users.noreply.gitlab.com`,
   ]);
-  const branches = await git(TARGET, ["branch", "-a", "--format=%(refname:short)"]);
-  log(`✓ 分支：${branches.split(/\r?\n/).filter(Boolean).join("、")}`);
 
   // ---- 4. 保护分支：谁都不能直接 push，只能通过 MR 合入 ----
   for (const name of PROTECTED) {
@@ -172,7 +198,21 @@ async function main() {
     else log(`! 保护 ${name} 失败（${result.status}）：${result.text.slice(0, 160)}`);
   }
 
-  // ---- 5. 打印下一步 ----
+  // ---- 5. 以 GitLab 的接口回读为准，确认分支真的在远端 ----
+  const remote = await api(
+    "GET",
+    `/projects/${project.id}/repository/branches?per_page=100`,
+  );
+  if (remote.ok) {
+    const names = (remote.data || []).map((item) => item.name);
+    log(`✓ GitLab 上现有分支（${names.length}）：${names.join("、") || "（空）"}`);
+    if (!names.length)
+      fail("接口回读显示项目仍是空的：分支没有推上去，请看上面的 ✗ 原因");
+  } else {
+    log(`! 回读远端分支失败（${remote.status}）：${remote.text.slice(0, 160)}`);
+  }
+
+  // ---- 6. 打印下一步 ----
   log("\n================ 下一步在 BranchNote 里操作 ================");
   log(`1. 点「从仓库添加分支」→ 选择文件夹：${TARGET}`);
   log("2. 「本版本目标」栏：把发布分支改成 origin/release，并勾上「受保护」");
