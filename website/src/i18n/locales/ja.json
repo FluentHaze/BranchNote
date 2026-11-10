@@ -122,5 +122,9 @@
     "flowOpen": "Git の対話型フローを開く",
     "flowGuide": "詳しい Git ワークフローを読む",
     "flowLanguage": "フロー図と詳細ガイドは現在、簡体字中国語で提供しています。"
+  },
+  "seo": {
+    "title": "BranchNote — Git ブランチ管理と MR 作成ツール",
+    "description": "Git の機能ブランチをプロジェクト別に管理し、競合を事前確認。複数ブランチをまとめて GitLab MR / GitHub PR を作成し、マージ状況を追跡します。ローカル保存、JSON バックアップ、macOS ダウンロードと Git ガイドを提供。"
   }
 }

@@ -37,3 +37,9 @@ pnpm run preview
 字体随站点提供，不请求字体 CDN；许可见 `src/assets/FONT-LICENSE.txt` 和 `FONT-KR-LICENSE.txt`。新增中日韩文案需要同步扩充字集；保持 `local-fonts.css` 的韩文字形范围一致。
 
 流程图为独立 HTML；若 Git 行为变更，应重新核对源码并用 Archify 生成和验证，不能仅改图中文字。官网内容调整不意味着桌面应用已经重新打包。
+
+## SEO 维护
+
+`/BranchNote/sitemap.xml` 随构建生成，使用 Astro 的 `site` 和部署 `base` 生成绝对地址，收录五个本地化首页与 `/workflow/` 指南。各首页条目包含五语言及指向简体中文首页的 `x-default` 替代链接；不重复收录根首页，也不收录独立交互图，不填未经核实的更新时间。
+
+`public/robots.txt` 公开允许抓取并声明当前 sitemap 地址。GitHub Pages 项目站将它部署在 `/BranchNote/robots.txt`，该文件不能替代搜索引擎按协议读取的主机根目录 `/robots.txt`；不要据此宣称已控制整个 `fluenthaze.github.io` 的抓取策略。可将 sitemap 的完整公开地址提交到搜索引擎站长工具。更换公开域名或项目路径时，更新 `SITE_URL`、`SITE_BASE_PATH`，同时同步 `robots.txt` 中的 sitemap 地址。

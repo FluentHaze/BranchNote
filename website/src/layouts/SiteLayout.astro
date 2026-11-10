@@ -1,5 +1,6 @@
 ---
 import { languageNames, languagePath, locales, withBase, type Copy, type Locale } from "../i18n";
+import SeoHead from "../components/seo/SeoHead.astro";
 import Header from "../components/Header.astro";
 import "../styles/base.css";
 import "../styles/layout.css";
@@ -10,8 +11,26 @@ import "../styles/preview.css";
 import "../styles/local-fonts.css";
 interface Props { copy: Copy; locale: Locale; }
 const { copy: c, locale } = Astro.props;
-const title = `BranchNote — ${c.h1} ${c.h2}`;
-const canonical = Astro.site ? new URL(languagePath(locale), Astro.site) : undefined;
+const canonical = new URL(languagePath(locale), Astro.site);
+const home = new URL(withBase(""), Astro.site).href;
+const structuredData = {
+  "@context": "https://schema.org",
+  "@graph": [
+    { "@type": "WebSite", "@id": home + "#website", name: "BranchNote", url: home, inLanguage: [...locales] },
+    {
+      "@type": "WebPage", "@id": canonical.href + "#webpage", url: canonical.href,
+      name: c.seo.title, description: c.seo.description, inLanguage: locale,
+      isPartOf: { "@id": home + "#website" }, mainEntity: { "@id": home + "#application" },
+    },
+    {
+      "@type": "SoftwareApplication", "@id": home + "#application", name: "BranchNote",
+      applicationCategory: "DeveloperApplication", operatingSystem: "macOS", softwareVersion: "0.2.5",
+      description: c.seo.description, url: canonical.href,
+      downloadUrl: "https://github.com/FluentHaze/BranchNote/releases/tag/v0.2.5",
+      image: new URL(withBase("social/branchnote.png"), Astro.site).href,
+    },
+  ],
+};
 ---
 
 <!doctype html>
@@ -20,19 +39,8 @@ const canonical = Astro.site ? new URL(languagePath(locale), Astro.site) : undef
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="theme-color" content="#090b10" />
-    <meta name="description" content={c.intro} />
-    <meta property="og:type" content="website" />
-    <meta property="og:site_name" content="BranchNote" />
-    <meta property="og:title" content={title} />
-    <meta property="og:description" content={c.intro} />
-    <meta property="og:locale" content={locale.replace("-", "_")} />
-    {canonical && <meta property="og:url" content={canonical.href} />}
-    {canonical && <link rel="canonical" href={canonical.href} />}
-    {locales.map(value => (
-      <link rel="alternate" hreflang={value} href={Astro.site ? new URL(languagePath(value), Astro.site).href : languagePath(value)} />
-    ))}
-    <link rel="icon" href={withBase("logo.svg")} type="image/svg+xml" />
-    <title>{title}</title>
+    <SeoHead title={c.seo.title} description={c.seo.description} locale={locale}
+      canonicalPath={languagePath(locale)} localized structuredData={structuredData} />
   </head>
   <body class="a">
     <a class="skip-link" href="#main-content">{c.inspect}</a>

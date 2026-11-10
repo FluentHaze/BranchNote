@@ -67,5 +67,27 @@
 - [x] 复核提交、产物和 Release 状态，创建可审核草稿
 - [x] 接入双架构下载、交互图、详细使用指南及 Pages 子路径
 - [x] 安装官网依赖，检查构建、链接、响应式和主要操作
-- [ ] 发布 Release，提交推送官网与部署配置，启用 Pages
-- [ ] 验证远程安装包、线上页面和工作区状态，记录 Review
+- [x] 发布 Release，提交推送官网与部署配置，启用 Pages
+- [x] 验证远程安装包、线上页面和工作区状态，记录 Review
+
+### Review
+
+- v0.2.5 发行版绑定 11ed0dad5582308f02ea43e87552e1750abcf66b；10 个资产远程大小与 SHA-256 一致，四个更新清单文件 SHA-512 匹配；公开 DMG 下载返回 200，公开 latest-mac.yml 与本地逐字节一致。
+- 官网提交 c399688，Pages Actions 42824233339 成功；线上首页包含双架构下载、交互流程与详细指南。
+- 官网 build 无错误、警告；静态站内 105 个引用有效。识别逻辑的 arm、x86、未知、Safari、拒绝、Windows、iPad 七种场景通过，浏览器实测仅 Apple Silicon 高亮。
+- 检查中文手机 375、桌面 1440、韩文平板 768 无页面横向溢出；实际打开指南及流程图并切换浅色主题。字体覆盖新增中日韩文案。
+- Windows 安装包未提供，入口禁用并明确说明。未 Apple 公证，未补做真实安装、Intel 真机或在线更新端到端验收。生成图保留 Archify 原始字节，其生成模板含少量行末空白，未手改导致交付凭据失效。
+
+## 2026-11-10：整理项目发现信息与官网 SEO
+
+- [x] 根据当前产品更新 GitHub Description、Topics 和官网链接
+- [x] 完善五语言搜索标题、描述、分享图、canonical、hreflang 和结构化数据
+- [x] 增加 sitemap 与爬虫说明，检查全部页面元信息及线上访问
+- [ ] 提交推送、验证 Pages 部署并记录实际边界
+
+### 本地检查
+
+- GitHub Description 已移除旧版发布批次、上线状态和文本导入描述，12 个 Topics 与官网地址已通过 API 更新。
+- 官网五语言标题/描述、统一 SEO 头、OG/Twitter 分享图、WebSite/WebPage/SoftwareApplication 及指南 TechArticle 已生成；不添加虚构评分、报价或用户数据。
+- pnpm build 无错误/警告，校验 7 个页面 canonical、hreflang、JSON-LD、OG/Twitter、112 个站内引用、6 条 sitemap 记录和分享图尺寸通过。
+- sitemap 不包含重复根首页及独立图，未编造 lastmod。项目路径 robots 不能替代主机根 robots；未操作 Search Console 或保证搜索收录。

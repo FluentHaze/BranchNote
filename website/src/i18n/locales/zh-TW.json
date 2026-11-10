@@ -122,5 +122,9 @@
     "flowOpen": "開啟互動流程圖",
     "flowGuide": "閱讀詳細 Git 工作流程",
     "flowLanguage": "流程圖與詳細指南目前提供簡體中文。"
+  },
+  "seo": {
+    "title": "BranchNote — Git 分支管理與 MR 提交工具",
+    "description": "使用 BranchNote 按專案管理 Git 功能分支、預先檢查合併衝突、批次建立 GitLab MR / GitHub PR 並追蹤合併狀態。資料保存在本機，支援 JSON 備份，提供 macOS 下載與詳細 Git 工作流程。"
   }
 }

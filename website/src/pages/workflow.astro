@@ -1,18 +1,23 @@
 ---
+import SeoHead from "../components/seo/SeoHead.astro";
 import { Content } from "../../../docs/git-workflow.md";
 import { withBase, languagePath } from "../i18n";
 import "../styles/local-fonts.css";
-const title = "BranchNote 推荐 Git 工作流";
+const title = "BranchNote Git 工作流指南 — 临时分支、冲突处理与 MR 合并";
+const description = "了解 feature、mr 和 resolve 分支的职责，按步骤完成冲突预检、临时分支整合、解决冲突、提交 MR 以及合并后的分支清理。";
+const structuredData = {
+  "@context": "https://schema.org", "@type": "TechArticle", headline: title, description,
+  inLanguage: "zh-CN", mainEntityOfPage: new URL(withBase("workflow/"), Astro.site).href,
+  image: new URL(withBase("social/branchnote.png"), Astro.site).href,
+};
 ---
 <!doctype html>
 <html lang="zh-CN">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="description" content="了解 BranchNote 功能分支、临时整合分支和冲突处理分支的职责，以及提交 MR、审核和清理的推荐流程。" />
-    <link rel="icon" href={withBase("logo.svg")} type="image/svg+xml" />
-    <link rel="canonical" href={new URL(withBase("workflow/"), Astro.site)} />
-    <title>{title}</title>
+    <SeoHead title={title} description={description} locale="zh-CN" canonicalPath={withBase("workflow/")}
+      article structuredData={structuredData} />
   </head>
   <body>
     <nav aria-label="指南导航"><a href={languagePath("zh-CN")}>← 返回 BranchNote 官网</a><a href={withBase("workflow/git-flow.html")} target="_blank" rel="noopener noreferrer">打开交互流程图 ↗</a></nav>

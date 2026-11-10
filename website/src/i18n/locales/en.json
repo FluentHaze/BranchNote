@@ -122,5 +122,9 @@
     "flowOpen": "Explore the interactive Git flow",
     "flowGuide": "Read the detailed Git workflow",
     "flowLanguage": "The diagram and detailed guide are currently in Simplified Chinese."
+  },
+  "seo": {
+    "title": "BranchNote — Git Branch Management & Merge Requests",
+    "description": "Organize Git feature branches by project, preflight conflicts, submit GitLab merge requests or GitHub pull requests, and track merges. Local data, JSON backups, macOS downloads and a practical Git workflow guide."
   }
 }

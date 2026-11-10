@@ -1,2 +1,4 @@
 User-agent: *
 Allow: /
+
+Sitemap: https://fluenthaze.github.io/BranchNote/sitemap.xml

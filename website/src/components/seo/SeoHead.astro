@@ -1,0 +1,45 @@
+---
+import { locales, languagePath, withBase, type Locale } from "../../i18n";
+interface Props {
+  title: string;
+  description: string;
+  locale: Locale;
+  canonicalPath: string;
+  localized?: boolean;
+  article?: boolean;
+  structuredData?: Record<string, unknown>;
+}
+const { title, description, locale, canonicalPath, localized = false, article = false, structuredData } = Astro.props;
+const canonical = new URL(canonicalPath, Astro.site);
+const image = new URL(withBase("social/branchnote.png"), Astro.site);
+const ogLocales: Record<Locale, string> = { "zh-CN": "zh_CN", "zh-TW": "zh_TW", en: "en_US", ja: "ja_JP", ko: "ko_KR" };
+---
+<title>{title}</title>
+<meta name="description" content={description} />
+<meta name="robots" content="index,follow,max-image-preview:large" />
+<meta name="application-name" content="BranchNote" />
+<link rel="canonical" href={canonical.href} />
+<link rel="icon" href={withBase("logo.svg")} type="image/svg+xml" />
+<link rel="sitemap" type="application/xml" href={withBase("sitemap.xml")} />
+{localized && <>
+  {locales.map(value => <link rel="alternate" hreflang={value} href={new URL(languagePath(value), Astro.site).href} />)}
+  <link rel="alternate" hreflang="x-default" href={new URL(languagePath("zh-CN"), Astro.site).href} />
+</>}
+<meta property="og:type" content={article ? "article" : "website"} />
+<meta property="og:site_name" content="BranchNote" />
+<meta property="og:title" content={title} />
+<meta property="og:description" content={description} />
+<meta property="og:locale" content={ogLocales[locale]} />
+{localized && locales.filter(value => value !== locale).map(value => <meta property="og:locale:alternate" content={ogLocales[value]} />)}
+<meta property="og:url" content={canonical.href} />
+<meta property="og:image" content={image.href} />
+<meta property="og:image:type" content="image/png" />
+<meta property="og:image:width" content="1200" />
+<meta property="og:image:height" content="630" />
+<meta property="og:image:alt" content="BranchNote — Git branches, conflict checks and merge requests" />
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:title" content={title} />
+<meta name="twitter:description" content={description} />
+<meta name="twitter:image" content={image.href} />
+<meta name="twitter:image:alt" content="BranchNote — Git branches, conflict checks and merge requests" />
+{structuredData && <script type="application/ld+json" set:html={JSON.stringify(structuredData).replace(/</g, "\\u003c")} />}

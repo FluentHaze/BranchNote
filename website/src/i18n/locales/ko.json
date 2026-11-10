@@ -122,5 +122,9 @@
     "flowOpen": "대화형 Git 흐름도 열기",
     "flowGuide": "자세한 Git 워크플로 읽기",
     "flowLanguage": "흐름도와 상세 가이드는 현재 중국어 간체로 제공됩니다."
+  },
+  "seo": {
+    "title": "BranchNote — Git 브랜치 관리 및 MR 생성 도구",
+    "description": "프로젝트별 Git 기능 브랜치를 정리하고 충돌을 미리 확인하세요. GitLab MR / GitHub PR을 일괄 생성하고 병합 상태를 추적합니다. 로컬 데이터, JSON 백업, macOS 다운로드와 자세한 Git 워크플로 가이드를 제공합니다."
   }
 }
