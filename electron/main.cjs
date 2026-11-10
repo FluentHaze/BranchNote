@@ -1,5 +1,8 @@
-const { app, BrowserWindow, ipcMain, dialog, shell, nativeTheme } = require("electron");
+const { app, BrowserWindow, ipcMain, dialog, shell, nativeTheme, Tray, Menu, nativeImage, screen } = require("electron");
 const path = require("node:path");
+const { initializeUpdater } = require("./updater.cjs");
+const { autoUpdater } = require("electron-updater");
+const { fetchUpdate } = require("../dist-electron/update-fetch.cjs");
 const fs = require("node:fs/promises");
 const { execFile } = require("node:child_process");
 const { promisify } = require("node:util");
@@ -36,11 +39,18 @@ const {
 } = require("./hosts.cjs");
 
 let window;
+let tray;
+let trayMenuWindow;
+let quitting = false;
 let mergePlan;
 let merging = false;
 const dataPath = () => path.join(app.getPath("userData"), "branchnote.json");
 
-app.whenReady().then(() => {
+const primaryInstance = app.requestSingleInstanceLock();
+if (!primaryInstance) app.quit();
+
+if (primaryInstance) app.whenReady().then(() => {
+  initializeUpdater({ app, BrowserWindow, ipcMain, shell, autoUpdater, fetchUpdate, canInstall: () => !merging });
   // 页面目前使用浅色主题，原生标题栏和系统对话框与其保持一致。
   nativeTheme.themeSource = "light";
   ipcMain.handle("repository:pick", async () => {
@@ -259,13 +269,79 @@ app.whenReady().then(() => {
     window.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
     window.webContents.setZoomFactor(1);
     window.webContents.on("will-navigate", (event) => event.preventDefault());
+    window.on("close", (event) => {
+      if (!quitting && tray && !tray.isDestroyed()) {
+        event.preventDefault();
+        window.hide();
+      }
+    });
+    window.on("closed", () => { window = null; });
     window.loadFile(path.join(__dirname, "../dist/index.html"));
   }
+  function showWindow() {
+    if (!window || window.isDestroyed()) createWindow();
+    if (window.isMinimized()) window.restore();
+    window.show();
+    window.focus();
+  }
+  function trayAction(action) {
+    showWindow();
+    window.webContents.send("tray:action", action);
+  }
+  const trayIcon = path.join(__dirname, "../dist", process.platform === "win32" ? "icon.ico" : "icon.png");
+  tray = new Tray(process.platform === "win32"
+    ? trayIcon
+    : nativeImage.createFromPath(trayIcon).resize({ width: 16, height: 16 }));
+  tray.setToolTip("BranchNote");
+  const trayMenu = Menu.buildFromTemplate([
+    { label: "刷新当前项目 MR", click: () => trayAction("refresh") },
+    { label: "打开 BranchNote", click: showWindow },
+    { label: "打开设置", click: () => trayAction("settings") },
+    { type: "separator" },
+    { label: "隐藏窗口", click: () => window?.hide() },
+    { type: "separator" },
+    { label: "退出 BranchNote", click: () => app.quit() },
+  ]);
+  if (process.platform === "win32") {
+    ipcMain.handle("tray-menu:action", (event, action) => {
+      if (event.sender !== trayMenuWindow?.webContents) throw new Error("无效的托盘请求");
+      trayMenuWindow.close();
+      if (action === "refresh" || action === "settings") trayAction(action);
+      else if (action === "open") showWindow();
+      else if (action === "hide") window?.hide();
+      else if (action === "quit") app.quit();
+    });
+    tray.on("right-click", () => {
+      if (trayMenuWindow && !trayMenuWindow.isDestroyed()) { trayMenuWindow.focus(); return; }
+      const point = screen.getCursorScreenPoint();
+      const area = screen.getDisplayNearestPoint(point).workArea;
+      const width = 232, height = 224;
+      trayMenuWindow = new BrowserWindow({
+        width, height,
+        x: Math.max(area.x, Math.min(point.x - width / 2, area.x + area.width - width)),
+        y: Math.max(area.y, Math.min(point.y - height, area.y + area.height - height)),
+        frame: false, transparent: true, backgroundColor: "#00000000", hasShadow: true,
+        resizable: false, skipTaskbar: true, alwaysOnTop: true, show: false,
+        webPreferences: { preload: path.join(__dirname, "tray-preload.cjs"), contextIsolation: true, nodeIntegration: false, sandbox: true },
+      });
+      const popup = trayMenuWindow;
+      popup.setMenuBarVisibility(false);
+      popup.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
+      popup.webContents.on("will-navigate", event => event.preventDefault());
+      popup.once("ready-to-show", () => popup.show());
+      popup.on("blur", () => { if (!popup.isDestroyed()) popup.close(); });
+      popup.on("closed", () => { trayMenuWindow = null; });
+      popup.loadFile(path.join(__dirname, "tray.html"));
+    });
+  } else tray.setContextMenu(trayMenu);
+  tray.on("click", showWindow);
+  tray.on("double-click", showWindow);
   createWindow();
-  app.on("activate", () => {
-    if (BrowserWindow.getAllWindows().length === 0) createWindow();
-  });
+  app.on("activate", showWindow);
+  app.on("second-instance", showWindow);
 });
+app.on("before-quit", () => { quitting = true; });
+app.on("will-quit", () => { tray?.destroy(); });
 app.on("window-all-closed", () => {
-  if (process.platform !== "darwin") app.quit();
+  if (process.platform !== "darwin" && (!tray || tray.isDestroyed())) app.quit();
 });

@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'unsafe-inline'" />
+    <style>
+      * { box-sizing: border-box; }
+      html { background: transparent; }
+      body { margin: 0; height: 100vh; padding: 8px; overflow: hidden; background: transparent; color: #252936; font: 13px/1.5 "Microsoft YaHei", sans-serif; }
+      nav { height: 100%; padding: 5px; border: 1px solid #e2e5ea; border-radius: 12px; background: #fff; box-shadow: 0 2px 7px #00000026; overflow: hidden; }
+      button { display: block; width: 100%; height: 34px; padding: 0 12px; border: 0; border-radius: 5px; background: transparent; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+      button:hover, button:focus-visible { background: #4263dc; color: #fff; outline: none; }
+      hr { margin: 5px 4px; border: 0; border-top: 1px solid #e7eaf0; }
+    </style>
+  </head>
+  <body>
+    <nav aria-label="BranchNote 托盘菜单">
+      <button data-action="refresh">刷新当前项目</button>
+      <button data-action="open">打开 BranchNote</button>
+      <button data-action="settings">打开设置</button>
+      <hr />
+      <button data-action="hide">隐藏窗口</button>
+      <hr />
+      <button data-action="quit">退出 BranchNote</button>
+    </nav>
+    <script src="tray-menu.js"></script>
+  </body>
+</html>

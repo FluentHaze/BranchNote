@@ -12,7 +12,7 @@ pnpm run build
 pnpm exec electron .
 ```
 
-当前 `start`、`pack:win`、`pack:mac` 脚本仍内嵌 npm 调用，本次文档更新未改脚本。使用下方显式 pnpm 命令启动和打包，避免混用包管理器。
+正式打包通过 `scripts/pack.mjs` 执行，沿用启动命令所使用的包管理器；不安装或升级依赖。`start` 脚本仍内嵌 npm 构建调用，可使用上面的显式命令启动。
 
 浏览器预览使用 `pnpm run dev`，只适合页面查看，不能替代桌面 Git、令牌和文件系统流程的验证；浏览器与桌面数据相互独立。
 
@@ -31,18 +31,20 @@ MR UI 检查使用模拟平台接口；Git 检查使用临时仓库。它们不�
 ## 打包与发行
 
 ```sh
-pnpm run build
-pnpm exec electron-builder --win nsis
+pnpm run pack:win
 ```
 
 macOS 在对应平台构建：
 
 ```sh
-pnpm run build
-pnpm exec electron-builder --mac dmg
+pnpm run pack:mac
 ```
 
-产物输出到 `release/`。当前未配置签名、公证或自动更新。发布前需验证实际安装、首次启动、数据保留、权限和平台连接，并在发行说明中明确系统与架构。生成本地产物不代表已经发布。
+每次正式打包先递增 `package.json` 的补丁版本，再构建界面及主进程，最后生成安装包和更新清单。遗留 `package-lock.json` 只同步根版本号，不通过它更新依赖；pnpm 锁文件没有根版本字段。普通 `build` 和 `test` 不递增版本。构建或打包失败时保留已递增版本，避免复用同一版本分发不同内容。
+
+Windows 产物位于 `release/win/`，macOS 产物位于 `release/mac/`。在 Mac 上执行 `pnpm run pack` 可用同一版本生成双平台产物；分别执行两个平台命令会分别递增版本。打包时不要运行输出目录中的应用，以免文件占用。
+
+已配置 GitHub Releases 应用内更新；Windows 未配置代码签名，Mac 使用本地签名并检查完整性，尚未经过 Apple 公证。发布前需验证实际安装、首次启动、数据保留、权限和平台连接，并在发行说明中明确系统与架构。生成本地产物不代表已经发布。
 
 未经授权不上传安装包、不创建发行版。安装用户只应接触发行包及使用文档，不能把从源码构建作为产品的默认安装方式。
 

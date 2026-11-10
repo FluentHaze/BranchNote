@@ -1,7 +1,9 @@
 node_modules/
 dist/
+dist-electron/
 release/
 *.log
+.vscode/
 
 # 测试临时产物与截图
 .tmp/

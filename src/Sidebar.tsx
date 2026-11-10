@@ -6,6 +6,7 @@ import {
 import type { Store } from "./model";
 import type { Editor } from "./EditorForm";
 import { version } from "../package.json";
+import AppUpdate from "./AppUpdate";
 export type View =
   | { kind: "settings" }
   | { kind: "project"; id: string };
@@ -58,6 +59,7 @@ export default function Sidebar({ store, view, navigate, setEditor }: Props) {
         )}
       </nav>
       <div className="sidebar-bottom">
+        <AppUpdate compact onOpen={() => navigate({ kind: "settings" })} />
         <button
           className={`nav-item ${view.kind === "settings" ? "active" : ""}`}
           onClick={() => navigate({ kind: "settings" })}

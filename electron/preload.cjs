@@ -1,5 +1,17 @@
 const { contextBridge, ipcRenderer } = require("electron");
 contextBridge.exposeInMainWorld("branchNote", {
+  subscribeTrayAction: (callback) => {
+    const listener = (_, action) => callback(action);
+    ipcRenderer.on("tray:action", listener);
+    return () => ipcRenderer.removeListener("tray:action", listener);
+  },
+  getUpdate: () => ipcRenderer.invoke("update:get"),
+  update: (action) => ipcRenderer.invoke("update:action", action),
+  subscribeUpdate: (callback) => {
+    const listener = (_, state) => callback(state);
+    ipcRenderer.on("update:state", listener);
+    return () => ipcRenderer.removeListener("update:state", listener);
+  },
   pickRepository: () => ipcRenderer.invoke("repository:pick"),
   readRepository: (directory) =>
     ipcRenderer.invoke("repository:read", directory),

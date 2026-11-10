@@ -1,4 +1,5 @@
 import { blankStore, parseStore, type Store } from "./model";
+import type { UpdateState, UpdateAction } from "./update";
 
 export interface RepositoryBranch {
   /** 短名，不含远程前缀，例如 feature/login */
@@ -183,6 +184,10 @@ export interface MergeRequestResult {
 declare global {
   interface Window {
     branchNote?: {
+      subscribeTrayAction(callback: (action: "refresh" | "settings") => void): () => void;
+      getUpdate(): Promise<UpdateState>;
+      update(action: UpdateAction): Promise<void>;
+      subscribeUpdate(callback: (state: UpdateState) => void): () => void;
       pickRepository(): Promise<Repository | null>;
       readRepository(path: string): Promise<Repository>;
       fetchRepository(path: string): Promise<FetchResult>;

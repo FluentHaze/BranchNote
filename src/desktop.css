@@ -316,11 +316,26 @@ input[type="checkbox"] {
 .branch-name {
   gap: 7px;
   color: #9299a7;
-  margin-top: 4px;
+  margin-top: 0;
 }
 .branch-name > svg {
   width: 12px;
   height: 12px;
+  flex-shrink: 0;
+}
+.branch-name .branch-code {
+  min-width: 0;
+  color: var(--ink);
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.6;
+}
+.branch-cell p.branch-description {
+  margin: 5px 0 0;
+  font-size: 12px;
+  line-height: 1.7;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 .branch-name > button:first-of-type {
   max-width: min(40vw, 680px);
@@ -1520,3 +1535,24 @@ textarea,
   color: var(--muted);
   font-size: 12px;
 }
+
+.app-update progress { width: 100%; accent-color: var(--accent); }
+.update-actions { display: flex; gap: 10px; margin-top: 14px; }
+.update-error { color: var(--danger); overflow-wrap: anywhere; }
+.sidebar-bottom .update-notice {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  width: 100%;
+  padding: 12px;
+  margin-bottom: 10px;
+  color: var(--accent);
+  background: var(--accent-soft);
+  text-align: left;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.update-notice span { font-size: 12px; line-height: 1.5; }
+.update-notice progress { width: 100%; accent-color: var(--accent); }
+.update-notice { border: 1px solid var(--line); border-radius: var(--radius-control); }

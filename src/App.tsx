@@ -4,6 +4,7 @@ import BranchPicker from "./BranchPicker";
 import SubmitDialog from "./SubmitDialog";
 import TargetBar from "./TargetBar";
 import HostsPanel from "./HostsPanel";
+import AppUpdate from "./AppUpdate";
 import Modal from "./Modal";
 import Select from "./Select";
 import EditorForm, { type Editor } from "./EditorForm";
@@ -84,7 +85,7 @@ export default function App() {
   const syncing = useRef(false);
   const [syncBusy, setSyncBusy] = useState(false);
   const [syncNotice, setSyncNotice] = useState("");
-  const refreshMRs = useRef<(manual?: boolean) => Promise<void>>(async () => {});
+  const refreshProject = useRef<(manual?: boolean) => Promise<void>>(async () => {});
 
 
   useEffect(() => {
@@ -197,7 +198,7 @@ export default function App() {
     view.kind === "project"
       ? store.projects.find((p) => p.id === view.id)
       : undefined;
-  refreshMRs.current = async (manual = false) => {
+  refreshProject.current = async (manual = false) => {
     const api = window.branchNote;
     if (!project || !api?.syncMergeRequests || syncing.current || writing.current || !canWrite.current) return;
     const snapshot = latestStore.current;
@@ -207,19 +208,37 @@ export default function App() {
         return state.mr && state.mr.state !== "merged"
           ? [{id: branch.id, stage: target.id, mr: state.mr, mergedAt: state.mergedAt}] : [];
       }));
-    if (!tracked.length) {
-      if (manual) setSyncNotice("暂无需要同步的 MR");
+    const repositoryPath = project.repositoryPath;
+    if (!tracked.length && !repositoryPath) {
+      if (manual) setSyncNotice("未关联仓库，暂无需要同步的 MR");
       return;
     }
     syncing.current = true;
     setSyncBusy(true);
     try {
-      const results = await api.syncMergeRequests(tracked.map(item => item.mr.url));
+      const [repositoryResult, mrResult] = await Promise.allSettled([
+        repositoryPath ? api.fetchRepository(repositoryPath) : Promise.resolve(null),
+        tracked.length ? api.syncMergeRequests(tracked.map(item => item.mr.url)) : Promise.resolve([]),
+      ]);
+      const results = mrResult.status === "fulfilled" ? mrResult.value : [];
+      const repository = repositoryResult.status === "fulfilled" ? repositoryResult.value : null;
       if (writing.current) return;
       const current = latestStore.current;
       let changed = false;
       const branches = current.branches.map(branch => {
         let next = branch;
+        const original = snapshot.branches.find(item => item.id === branch.id);
+        const source = repository?.repository.branches.find(item => item.name === branch.name);
+        if (branch.projectId === project.id && branch.name === original?.name &&
+            current.projects.find(item => item.id === project.id)?.repositoryPath === repositoryPath && source) {
+          const description = source.subject.trim() || branch.description;
+          const note = branch.note.replace(/(最近提交 )[0-9a-f]+(?=$|[，,；;\s])/i, "$1" + source.commit);
+          if (branch.description === original.description && branch.note === original.note &&
+              (description !== branch.description || note !== branch.note)) {
+            next = {...branch, description, note};
+            changed = true;
+          }
+        }
         for (const item of tracked.filter(item => item.id === branch.id)) {
           const state = targetState(next, item.stage);
           const result = results.find(result => result.url === item.mr.url);
@@ -234,11 +253,15 @@ export default function App() {
         }
         return next;
       });
-      const errors = results.filter(result => result.error);
-      if (changed && !await commit({...current, branches}, "MR 状态已更新")) return;
+      const errors = results.flatMap(result => result.error ? [result.error] : []);
+      if (repository) errors.push(...repository.errors);
+      for (const result of [repositoryResult, mrResult]) {
+        if (result.status === "rejected") errors.push(result.reason instanceof Error ? result.reason.message : "请检查网络或仓库路径");
+      }
+      if (changed && !await commit({...current, branches}, "最近提交与 MR 状态已更新")) return;
       if (latestProject.current !== project.id) return;
-      setSyncNotice(errors.length ? "同步失败 " + errors.length + " 项：" + errors[0].error
-        : "已同步 " + new Date().toLocaleTimeString([], {hour: "2-digit", minute: "2-digit"}) + " · 每 " + refreshLabel + "更新");
+      setSyncNotice(errors.length ? "部分刷新失败：" + errors.join("；")
+        : "已刷新 " + new Date().toLocaleTimeString([], {hour: "2-digit", minute: "2-digit"}) + " · 每 " + refreshLabel + "更新");
     } catch (error) {
       if (latestProject.current === project.id)
         setSyncNotice("同步失败：" + (error instanceof Error ? error.message : "请检查网络"));
@@ -249,10 +272,23 @@ export default function App() {
   };
   const latestProject = useRef(project?.id);
   latestProject.current = project?.id;
+  useEffect(() => window.branchNote?.subscribeTrayAction(action => {
+    if (action === "settings") {
+      navigate({ kind: "settings" });
+    } else if (loading) {
+      setToast("正在加载项目，请稍后刷新");
+    } else if (!project) {
+      setToast("请先选择需要刷新的项目");
+    } else if (syncing.current || writing.current || !canWrite.current) {
+      setToast("正在同步或保存，请稍后刷新");
+    } else {
+      void refreshProject.current(true);
+    }
+  }), [loading, project?.id]);
   useEffect(() => {
     setSyncNotice("");
     if (loading || !project) return;
-    const refresh = () => { if (!document.hidden) void refreshMRs.current(); };
+    const refresh = () => { if (!document.hidden) void refreshProject.current(); };
     refresh();
     const timer = window.setInterval(refresh, refreshSeconds * 1000);
     window.addEventListener("focus", refresh);
@@ -434,7 +470,7 @@ export default function App() {
                 </div>
               </section>
               <section className="settings-panel">
-                <h2>MR 状态同步</h2>
+                <h2>提交与 MR 状态同步</h2>
                 <div className="setting-row">
                   <div>
                     <h3>自动刷新周期</h3>
@@ -451,6 +487,7 @@ export default function App() {
                 </div>
               </section>
               <HostsPanel notify={setToast} />
+              <AppUpdate />
               <section className="settings-panel">
                 <h2>关于本地存储</h2>
                 <p className="settings-copy">
@@ -516,7 +553,7 @@ export default function App() {
                 />
               )}
 
-              <p className="picker-note" role="status">{syncNotice || ("MR 状态每 " + refreshLabel + "自动同步，返回窗口时立即刷新")}</p>
+              <p className="picker-note" role="status">{syncNotice || ("最近提交与 MR 状态每 " + refreshLabel + "自动同步，返回窗口时立即刷新")}</p>
               <section className="branch-section">
                 <div className="list-toolbar">
                   <div className="tabs" aria-label="状态筛选">
@@ -541,9 +578,9 @@ export default function App() {
                     ))}
                   </div>
                   <div className="list-filters">
-                    <button className="secondary" disabled={syncBusy || busy} onClick={() => void refreshMRs.current(true)} title={syncNotice || ("进入项目、返回窗口及每 " + refreshLabel + "自动同步")}>
+                    <button className="secondary" disabled={syncBusy || busy} onClick={() => void refreshProject.current(true)} title={syncNotice || ("进入项目、返回窗口及每 " + refreshLabel + "自动同步")}>
                       <RefreshCw size={14} />
-                      {syncBusy ? "同步中…" : "刷新 MR"}
+                      {syncBusy ? "刷新中…" : "刷新"}
                     </button>
                     <span className="result-count">
                       {visible.length} 条记录

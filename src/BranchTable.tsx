@@ -182,15 +182,11 @@ export default function BranchTable({
                   />
                 </td>
                 <td className="branch-cell">
-                  <span
-                    className="feature-title"
-                    title={branch.description || branch.name}
-                  >
-                    {branch.description || branch.name}
-                  </span>
                   <div className="branch-name">
                     <GitBranch size={15} />
-                    <code className="branch-code" title={branch.name}>{branch.name}</code>
+                    <code className="branch-code" title={branch.name}>
+                      {branch.name}
+                    </code>
                     <button
                       className="copy-button"
                       aria-label={`复制 ${branch.name}`}
@@ -199,6 +195,9 @@ export default function BranchTable({
                       <Copy size={13} />
                     </button>
                   </div>
+                  {branch.description && (
+                    <p className="branch-description">{branch.description}</p>
+                  )}
                   {branch.note && (
                     <p className="branch-change-note">{branch.note}</p>
                   )}
