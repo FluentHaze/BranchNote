@@ -83,7 +83,7 @@
 - [x] 根据当前产品更新 GitHub Description、Topics 和官网链接
 - [x] 完善五语言搜索标题、描述、分享图、canonical、hreflang 和结构化数据
 - [x] 增加 sitemap 与爬虫说明，检查全部页面元信息及线上访问
-- [ ] 提交推送、验证 Pages 部署并记录实际边界
+- [x] 提交推送、验证 Pages 部署并记录实际边界
 
 ### 本地检查
 
@@ -91,3 +91,11 @@
 - 官网五语言标题/描述、统一 SEO 头、OG/Twitter 分享图、WebSite/WebPage/SoftwareApplication 及指南 TechArticle 已生成；不添加虚构评分、报价或用户数据。
 - pnpm build 无错误/警告，校验 7 个页面 canonical、hreflang、JSON-LD、OG/Twitter、112 个站内引用、6 条 sitemap 记录和分享图尺寸通过。
 - sitemap 不包含重复根首页及独立图，未编造 lastmod。项目路径 robots 不能替代主机根 robots；未操作 Search Console 或保证搜索收录。
+
+### Review
+
+- SEO 提交 cfc71ab 的 Pages Actions 42825316957 成功，线上五语言首页与指南包含 canonical、OG/Twitter 和可解析 JSON-LD。
+- 线上 sitemap.xml、robots.txt、1200×630 分享图及独立流程图与本地构建逐字节一致；默认首页、五语言、指南和流程图均返回 200。
+- GitHub 简介、官网地址及 12 个 Topics 回读确认；v0.2.5 为 latest，包含 10 个已校验发行文件，Release 说明已补官网、指南和流程图链接。
+- 浏览器实际打开线上中文页，页面标题已变为产品关键词标题，Apple Silicon 单独显示当前设备，Intel 手动入口保留。
+- 未提交 Search Console、未宣称已收录或保证排名；应用安装、公证及线上更新 E2E 的限制沿用发行说明。
