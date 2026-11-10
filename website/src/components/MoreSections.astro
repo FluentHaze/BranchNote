@@ -1,8 +1,10 @@
 ---
-import { withBase, type Copy } from "../i18n";
+import { ArrowUpRight } from "lucide-react";
+import { withBase, type Copy, type Locale } from "../i18n";
+import WorkflowExplorer from "./WorkflowExplorer";
 import DownloadButtons from "./DownloadButtons.astro";
-interface Props { copy: Copy; }
-const { copy: c } = Astro.props;
+interface Props { copy: Copy; locale: Locale; }
+const { copy: c, locale } = Astro.props;
 const questions = [
   { question: c.q1, answer: c.a1 },
   { question: c.q2, answer: c.a2 },
@@ -12,19 +14,12 @@ const questions = [
 
 <section id="workflow">
   <h2>{c.work}</h2>
-  <div class="workflow">
-    {c.steps.map((step, index) => (
-      <div class="step">
-        <code>{["git branch", "review details", "create MR", "status sync"][index]}</code>
-        <p>{step}</p>
-      </div>
-    ))}
-  </div>
+  <WorkflowExplorer locale={locale} client:visible />
   <div class="git-flow-entry">
     <h3>{c.gitFlow.flowTitle}</h3>
     <p>{c.gitFlow.flowIntro}</p>
     <div class="actions">
-      <a class="button primary" href={withBase("workflow/git-flow.html")} target="_blank" rel="noopener noreferrer">{c.gitFlow.flowOpen} ↗</a>
+      <a class="button primary" href={withBase("workflow/git-flow.html")} target="_blank" rel="noopener noreferrer">{c.gitFlow.flowOpen}<ArrowUpRight size={15} strokeWidth={1.5} aria-hidden="true" /></a>
       <a class="button" href={withBase("workflow/")}>{c.gitFlow.flowGuide}</a>
     </div>
     <p class="smallnote">{c.gitFlow.flowLanguage}</p>

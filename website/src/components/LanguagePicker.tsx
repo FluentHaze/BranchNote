@@ -1,3 +1,4 @@
+import { Languages } from "lucide-react";
 import Select, { type SelectOption } from "./Select";
 
 interface Props {
@@ -9,6 +10,7 @@ export default function LanguagePicker({ value, options }: Props) {
   return (
     <Select
       className="language"
+      icon={<Languages size={16} strokeWidth={1.5} />}
       label="Language / 语言"
       value={value}
       options={options}

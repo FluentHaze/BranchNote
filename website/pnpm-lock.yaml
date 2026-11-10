@@ -11,6 +11,9 @@ dependencies:
   astro:
     specifier: 7.4.8
     version: 7.4.8
+  lucide-react:
+    specifier: 0.468.0
+    version: 0.468.0(react@19.2.0)
   react:
     specifier: 19.2.0
     version: 19.2.0
@@ -1838,6 +1841,14 @@ packages:
   /lru-cache@11.5.3:
     resolution: {integrity: sha512-U4N8FgzmWxc8k1VH8Kr6lQg18U7Fjvby6wXHVRX/ZZ7IwWbRMgrRbP0Wrb5q5NVinryp4SQampHKdvtecItxUg==}
     engines: {node: 20 || >=22}
+    dev: false
+
+  /lucide-react@0.468.0(react@19.2.0):
+    resolution: {integrity: sha512-6koYRhnM2N0GGZIdXzSeiNwguv1gt/FAjZOiPl76roBi3xKEXa4WmfpxgQwTTL4KipXjefrnf3oV4IsYhi4JFA==}
+    peerDependencies:
+      react: ^16.5.1 || ^17.0.0 || ^18.0.0 || ^19.0.0-rc
+    dependencies:
+      react: 19.2.0
     dev: false
 
   /magic-string@1.4.5:

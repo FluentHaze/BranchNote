@@ -1,4 +1,5 @@
-import { useEffect, useId, useRef, useState, type KeyboardEvent } from "react";
+import { Check, ChevronDown } from "lucide-react";
+import { useEffect, useId, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 
 export interface SelectOption<T extends string = string> {
   value: T;
@@ -14,10 +15,11 @@ interface Props<T extends string> {
   id?: string;
   disabled?: boolean;
   className?: string;
+  icon?: ReactNode;
 }
 
 // Uses the desktop app's popover/listbox pattern, with website-specific styling.
-export default function Select<T extends string>({ options, value, onChange, label, id, disabled, className = "" }: Props<T>) {
+export default function Select<T extends string>({ options, value, onChange, label, id, disabled, className = "", icon }: Props<T>) {
   const [open, setOpen] = useState(false);
   const trigger = useRef<HTMLButtonElement>(null);
   const menu = useRef<HTMLDivElement>(null);
@@ -49,13 +51,14 @@ export default function Select<T extends string>({ options, value, onChange, lab
     const button = trigger.current!;
     const panel = menu.current!;
     const rect = button.getBoundingClientRect();
-    const width = Math.min(Math.max(rect.width, 190), window.innerWidth - 24);
+    const width = Math.min(Math.max(rect.width, className === "language" ? 180 : 190), window.innerWidth - 24);
+    const left = className === "language" ? rect.right - width : rect.left;
     const below = window.innerHeight - rect.bottom - 12;
     const above = rect.top - 12;
     const useAbove = below < 180 && above > below;
     Object.assign(panel.style, {
       width: `${width}px`,
-      left: `${Math.max(12, Math.min(rect.left, window.innerWidth - width - 12))}px`,
+      left: `${Math.max(12, Math.min(left, window.innerWidth - width - 12))}px`,
       top: useAbove ? "auto" : `${rect.bottom + 7}px`,
       bottom: useAbove ? `${window.innerHeight - rect.top + 7}px` : "auto",
       maxHeight: `${Math.min(320, (useAbove ? above : below) - 7)}px`,
@@ -105,12 +108,11 @@ export default function Select<T extends string>({ options, value, onChange, lab
           show(event.key === "ArrowUp");
         }}
       >
-        <span>{options.find(option => option.value === value)?.label}</span>
-        <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
-          <path d="m4 6 4 4 4-4" />
-        </svg>
+        {icon && <span className="select-leading-icon" aria-hidden="true">{icon}</span>}
+        <span className="select-value">{options.find(option => option.value === value)?.label}</span>
+        <ChevronDown className="select-chevron" size={14} strokeWidth={1.6} aria-hidden="true" />
       </button>
-      <div ref={menu} className="select-menu" popover="auto" onToggle={event => setOpen(event.newState === "open")} onKeyDown={navigate}>
+      <div ref={menu} className={`select-menu ${className ? `${className}-menu` : ""}`} popover="auto" onToggle={event => setOpen(event.newState === "open")} onKeyDown={navigate}>
         <div id={listId} role="listbox" aria-label={label}>
           {options.map(option => (
             <button
@@ -123,7 +125,7 @@ export default function Select<T extends string>({ options, value, onChange, lab
               onClick={() => { onChange(option.value); close(); }}
             >
               <span>{option.label}</span>
-              {option.value === value && <span className="option-check" aria-hidden="true">✓</span>}
+              {option.value === value && <Check className="option-check" size={15} strokeWidth={1.7} aria-hidden="true" />}
             </button>
           ))}
         </div>

@@ -1,0 +1,41 @@
+.workflow-explorer { margin-top: 32px; padding: clamp(20px, 4vw, 32px); border: 1px solid #ffffff08; border-radius: 18px; background: #101621; text-align: left; }
+.explorer-heading { display: flex; align-items: flex-start; gap: 12px; }
+.explorer-heading > svg { flex-shrink: 0; margin-top: 5px; color: #a9c4f1; }
+.explorer-heading h3 { margin: 0; font-size: 21px; font-weight: 450; }
+.explorer-heading p { margin: 8px 0 0; color: #929fb5; font-size: 13px; }
+.explorer-scenarios { display: flex; flex-wrap: wrap; gap: 5px; margin: 24px 0; padding: 4px; width: fit-content; max-width: 100%; border-radius: 11px; background: #171f2d; }
+.explorer-scenarios button, .explorer-resolution button, .explorer-actions button { display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-height: 44px; padding: 9px 14px; border: 0; border-radius: 8px; background: transparent; color: #9eacc2; font: inherit; font-size: 13px; cursor: pointer; transition: background 140ms ease, color 140ms ease; }
+.explorer-scenarios button:hover, .explorer-resolution button:hover, .explorer-actions button:hover:enabled { background: #253247; color: #e0eafa; }
+.explorer-scenarios button[aria-pressed="true"], .explorer-resolution button[aria-pressed="true"] { color: #dceaff; background: #293850; }
+.explorer-stage { min-height: 248px; padding: 22px; border-radius: 12px; background: #151e2b; }
+.explorer-counter { color: #93b0db; font-size: 11px; font-variant-numeric: tabular-nums; }
+.explorer-state h4 { margin: 12px 0 8px; font-size: 20px; font-weight: 450; text-wrap: balance; }
+.explorer-state > p { margin: 0; max-width: 76ch; color: #a8b6cb; font-size: 13px; line-height: 1.85; }
+.explorer-branches { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; margin-top: 24px; }
+.explorer-branches > div > span { display: block; margin-bottom: 8px; color: #8494ae; font-size: 11px; }
+.explorer-branches code { display: flex; align-items: center; gap: 6px; color: #c5d9f7; font-size: 13px; overflow-wrap: anywhere; }
+.explorer-branches svg { flex-shrink: 0; }
+.explorer-resolution { margin-top: 24px; font-size: 12px; color: #a4b6cf; }
+.explorer-resolution > div { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+.explorer-resolution button { background: #1e2b3e; }
+.explorer-resolution button svg { flex-shrink: 0; opacity: 0; }
+.explorer-resolution button[aria-pressed="true"] svg { opacity: 1; }
+.explorer-resolution > p { margin: 10px 0 0; }
+.explorer-complete { display: flex; align-items: flex-start; gap: 8px; margin-top: 20px; color: #a5d6bc; font-size: 13px; }
+.explorer-complete svg { flex-shrink: 0; margin-top: 3px; }
+.explorer-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 18px; }
+.explorer-actions .explorer-reset { margin-left: auto; }
+.explorer-actions .explorer-next { margin-left: auto; color: #17304f; background: #d4e4ff; }
+.explorer-actions .explorer-next:hover:enabled { background: #edf4ff; color: #17304f; }
+.explorer-actions button:disabled { opacity: .4; cursor: default; }
+.explorer-disclaimer { margin: 16px 0 0; color: #8491a7; font-size: 11px; }
+@media (max-width: 600px) {
+  .explorer-branches { grid-template-columns: 1fr; gap: 14px; }
+  .explorer-stage { padding: 18px; }
+  .explorer-actions { align-items: stretch; }
+  .explorer-actions .explorer-reset { margin-left: 0; }
+  .explorer-actions .explorer-next { flex: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .explorer-scenarios button, .explorer-resolution button, .explorer-actions button { transition: none; }
+}

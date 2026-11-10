@@ -102,7 +102,12 @@
     "macIntel": "macOS · Intel",
     "macArm": "macOS · Apple Silicon",
     "releaseNotes": "版本說明與全部檔案",
-    "macNotice": "macOS 使用本機簽章，尚未經 Apple 公證；首次開啟請遵循系統安全提示。"
+    "macNotice": "macOS 使用本機簽章，尚未經 Apple 公證；首次開啟請遵循系統安全提示。",
+    "choose": "該下載哪個版本？",
+    "chipHelp": "開啟 Apple 選單 → 關於這台 Mac，查看「晶片」或「處理器」。",
+    "armHelp": "顯示 Apple M 系列晶片：選擇 Apple Silicon。",
+    "intelHelp": "顯示 Intel 處理器：選擇 Intel。",
+    "installHelp": "macOS 安裝說明 · 尚未經 Apple 公證"
   },
   "h1": "提交 MR，",
   "h2": "不必來回折騰。",

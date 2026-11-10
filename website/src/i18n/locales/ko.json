@@ -102,7 +102,12 @@
     "macIntel": "macOS · Intel",
     "macArm": "macOS · Apple Silicon",
     "releaseNotes": "릴리스 노트 및 전체 파일",
-    "macNotice": "macOS 앱은 로컬 서명되었으며 Apple 공증은 받지 않았습니다. 처음 실행할 때 시스템 보안 안내를 따르세요."
+    "macNotice": "macOS 앱은 로컬 서명되었으며 Apple 공증은 받지 않았습니다. 처음 실행할 때 시스템 보안 안내를 따르세요.",
+    "choose": "어떤 버전을 다운로드하나요?",
+    "chipHelp": "Apple 메뉴 → 이 Mac에 관하여에서 칩 또는 프로세서를 확인하세요.",
+    "armHelp": "Apple M 시리즈 칩: Apple Silicon을 선택하세요.",
+    "intelHelp": "Intel 프로세서: Intel을 선택하세요.",
+    "installHelp": "macOS 설치 안내 · Apple 공증 미완료"
   },
   "h1": "번거로운 MR 제출을,",
   "h2": "하나의 흐름으로.",

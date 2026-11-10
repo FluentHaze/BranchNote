@@ -102,7 +102,12 @@
     "macIntel": "macOS · Intel",
     "macArm": "macOS · Apple Silicon",
     "releaseNotes": "リリースノートと全ファイル",
-    "macNotice": "macOS 版はローカル署名済みですが、Apple の公証は未取得です。初回起動時はシステムの案内に従ってください。"
+    "macNotice": "macOS 版はローカル署名済みですが、Apple の公証は未取得です。初回起動時はシステムの案内に従ってください。",
+    "choose": "どちらをダウンロード？",
+    "chipHelp": "Apple メニュー → この Mac についてでチップまたはプロセッサを確認します。",
+    "armHelp": "Apple M シリーズのチップ：Apple Silicon を選択。",
+    "intelHelp": "Intel プロセッサ：Intel を選択。",
+    "installHelp": "macOS のインストール · Apple 公証未取得"
   },
   "h1": "MR 提出の手間を、",
   "h2": "ひとつの流れに。",

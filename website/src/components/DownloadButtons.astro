@@ -1,4 +1,5 @@
 ---
+import { Cpu, LaptopMinimal, Monitor, Download, CircleHelp, ShieldCheck, ChevronDown } from "lucide-react";
 import type { Copy } from "../i18n";
 interface Props { copy: Copy; }
 const { copy: c } = Astro.props;
@@ -8,28 +9,24 @@ const release = "https://github.com/FluentHaze/BranchNote/releases/download/v0.2
 <div class="actions download-actions">
   <a class="button download-trigger" data-platform="macos" data-arch="arm64" href={`${release}/BranchNote-0.2.5-mac-arm64.dmg`}>
     <span class="download-symbol">
-      <svg viewBox="0 0 20 20" width="18" height="18" aria-hidden="true">
-        <path fill="currentColor" d="M12.8 3.1c.7-.8.7-1.7.7-2.1-.8 0-1.8.5-2.3 1.1-.5.6-.8 1.4-.7 2.1.9.1 1.7-.4 2.3-1.1M16.8 13.6c-.4 1-1.8 3.9-3.3 3.9-.8 0-1.2-.5-2.2-.5-1 0-1.5.5-2.2.5-1.7 0-3.8-3.6-3.8-6.4 0-2.4 1.5-3.8 3.1-3.8 1 0 1.8.6 2.5.6.6 0 1.6-.6 2.7-.6 1 0 2 .5 2.6 1.2-2.2 1.3-1.8 4.2.6 5.1" />
-      </svg>
+      <Cpu size={22} strokeWidth={1.5} aria-hidden="true" />
     </span>
     <span class="download-copy">
       <span>{c.downloads.macArm}</span>
       <span class="current-device" hidden>{c.downloads.current}</span>
     </span>
+    <Download className="download-arrow" size={17} strokeWidth={1.6} aria-hidden="true" />
   </a>
   <a class="button download-trigger" data-platform="macos" data-arch="x64" href={`${release}/BranchNote-0.2.5-mac-x64.dmg`}>
     <span class="download-symbol">
-      <svg viewBox="0 0 20 20" width="18" height="18" aria-hidden="true">
-        <path fill="currentColor" d="M12.8 3.1c.7-.8.7-1.7.7-2.1-.8 0-1.8.5-2.3 1.1-.5.6-.8 1.4-.7 2.1.9.1 1.7-.4 2.3-1.1M16.8 13.6c-.4 1-1.8 3.9-3.3 3.9-.8 0-1.2-.5-2.2-.5-1 0-1.5.5-2.2.5-1.7 0-3.8-3.6-3.8-6.4 0-2.4 1.5-3.8 3.1-3.8 1 0 1.8.6 2.5.6.6 0 1.6-.6 2.7-.6 1 0 2 .5 2.6 1.2-2.2 1.3-1.8 4.2.6 5.1" />
-      </svg>
+      <LaptopMinimal size={22} strokeWidth={1.5} aria-hidden="true" />
     </span>
     <span class="download-copy"><span>{c.downloads.macIntel}</span><span class="current-device" hidden>{c.downloads.current}</span></span>
+    <Download className="download-arrow" size={17} strokeWidth={1.6} aria-hidden="true" />
   </a>
   <button class="button download-trigger" data-platform="windows" type="button" disabled title={c.downloads.notice}>
     <span class="download-symbol">
-      <svg viewBox="0 0 20 20" width="17" height="17" aria-hidden="true">
-        <path fill="currentColor" d="M2 3.5 8.5 2.6v6.7H2zm7.7-1.1L18 1.2v8.1H9.7zM2 10.5h6.5v6.8L2 16.4zm7.7 0H18v8.2l-8.3-1.2z" />
-      </svg>
+      <Monitor size={22} strokeWidth={1.5} aria-hidden="true" />
     </span>
     <span class="download-copy">
       <span>{c.downloads.win}</span>
@@ -38,7 +35,20 @@ const release = "https://github.com/FluentHaze/BranchNote/releases/download/v0.2
   </button>
 </div>
 <p class="smallnote">v0.2.5 · {c.downloads.hint} · <a class="release-link" href="https://github.com/FluentHaze/BranchNote/releases/tag/v0.2.5" target="_blank" rel="noopener noreferrer">{c.downloads.releaseNotes}</a></p>
-<p class="smallnote download-notice">{c.downloads.macNotice} {c.downloads.notice}.</p>
+<div class="download-support">
+  <details class="download-help">
+    <summary><CircleHelp size={15} aria-hidden="true" />{c.downloads.choose}<ChevronDown className="help-chevron" size={13} aria-hidden="true" /></summary>
+    <div class="download-help-body">
+      <p>{c.downloads.chipHelp}</p>
+      <ul><li>{c.downloads.armHelp}</li><li>{c.downloads.intelHelp}</li></ul>
+    </div>
+  </details>
+  <details class="download-help">
+    <summary><ShieldCheck size={15} aria-hidden="true" />{c.downloads.installHelp}<ChevronDown className="help-chevron" size={13} aria-hidden="true" /></summary>
+    <div class="download-help-body"><p>{c.downloads.macNotice}</p></div>
+  </details>
+  <p class="smallnote platform-availability">{c.downloads.notice}</p>
+</div>
 
 <script>
   const browserNavigator = navigator as Navigator & {

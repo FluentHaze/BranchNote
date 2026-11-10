@@ -102,7 +102,12 @@
     "macIntel": "macOS · Intel",
     "macArm": "macOS · Apple Silicon",
     "releaseNotes": "Release notes and all files",
-    "macNotice": "The macOS app is locally signed and has not been notarized by Apple. Follow system security prompts on first launch."
+    "macNotice": "The macOS app is locally signed and has not been notarized by Apple. Follow system security prompts on first launch.",
+    "choose": "Which version should I download?",
+    "chipHelp": "Open Apple menu → About This Mac and check Chip or Processor.",
+    "armHelp": "Apple M-series chip: choose Apple Silicon.",
+    "intelHelp": "Intel processor: choose Intel.",
+    "installHelp": "macOS installation · Not notarized by Apple"
   },
   "h1": "Less MR busywork.",
   "h2": "More time to build.",
