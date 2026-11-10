@@ -97,8 +97,12 @@
     "win": "下載 Windows 版",
     "mac": "下載 macOS 版",
     "hint": "桌面應用程式 · 本機儲存 · 無需註冊",
-    "notice": "下載即將開放",
-    "current": "目前裝置"
+    "notice": "Windows 安裝程式暫未提供",
+    "current": "目前裝置",
+    "macIntel": "macOS · Intel",
+    "macArm": "macOS · Apple Silicon",
+    "releaseNotes": "版本說明與全部檔案",
+    "macNotice": "macOS 使用本機簽章，尚未經 Apple 公證；首次開啟請遵循系統安全提示。"
   },
   "h1": "提交 MR，",
   "h2": "不必來回折騰。",
@@ -111,5 +115,12 @@
   "graph": {
     "sandbox": "獨立暫存儲存庫",
     "clean": "未發現衝突"
+  },
+  "gitFlow": {
+    "flowTitle": "發生衝突後，分支該怎麼走？",
+    "flowIntro": "從功能開發、暫存分支整合，到提交 MR 與平台合併，了解每一步及應保留的分支。",
+    "flowOpen": "開啟互動流程圖",
+    "flowGuide": "閱讀詳細 Git 工作流程",
+    "flowLanguage": "流程圖與詳細指南目前提供簡體中文。"
   }
 }

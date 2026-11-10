@@ -1,5 +1,5 @@
 ---
-import type { Copy } from "../i18n";
+import { withBase, type Copy } from "../i18n";
 import DownloadButtons from "./DownloadButtons.astro";
 interface Props { copy: Copy; }
 const { copy: c } = Astro.props;
@@ -20,6 +20,15 @@ const questions = [
       </div>
     ))}
   </div>
+  <div class="git-flow-entry">
+    <h3>{c.gitFlow.flowTitle}</h3>
+    <p>{c.gitFlow.flowIntro}</p>
+    <div class="actions">
+      <a class="button primary" href={withBase("workflow/git-flow.html")} target="_blank" rel="noopener noreferrer">{c.gitFlow.flowOpen} ↗</a>
+      <a class="button" href={withBase("workflow/")}>{c.gitFlow.flowGuide}</a>
+    </div>
+    <p class="smallnote">{c.gitFlow.flowLanguage}</p>
+  </div>
 </section>
 <section>
   <div class="privacy">
@@ -28,7 +37,7 @@ const questions = [
       <p>{c.privacytext}</p>
     </div>
     <div class="vault" aria-hidden="true">
-      <img src="/logo.svg" alt="" width="80" height="80" loading="lazy" />
+      <img src={withBase("logo.svg")} alt="" width="80" height="80" loading="lazy" />
       <code>
         ~/BranchNote/<br />
         branchnote.json<br />

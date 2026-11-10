@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import type { Copy } from "../i18n";
+import { withBase, type Copy } from "../i18n";
 import BranchIcon from "./BranchIcon";
 import Select from "./Select";
 import WorkflowIcon from "./WorkflowIcon";
@@ -52,7 +52,7 @@ export default function MrDemo({ copy: c }: { copy: Copy }) {
         </div>
         <div className="mr-layout">
           <aside className="mr-sidebar" aria-label={c.project}>
-            <img src="/logo.svg" alt="BranchNote" width="32" height="32" />
+            <img src={withBase("logo.svg")} alt="BranchNote" width="32" height="32" />
             <div className="sidebar-label">{c.project}</div>
             <div className="sidebar-project active">Developer Portal</div>
             <div className="sidebar-project">SDK</div>

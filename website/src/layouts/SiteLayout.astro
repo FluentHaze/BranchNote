@@ -1,5 +1,5 @@
 ---
-import { languageNames, languagePath, locales, type Copy, type Locale } from "../i18n";
+import { languageNames, languagePath, locales, withBase, type Copy, type Locale } from "../i18n";
 import Header from "../components/Header.astro";
 import "../styles/base.css";
 import "../styles/layout.css";
@@ -31,7 +31,7 @@ const canonical = Astro.site ? new URL(languagePath(locale), Astro.site) : undef
     {locales.map(value => (
       <link rel="alternate" hreflang={value} href={Astro.site ? new URL(languagePath(value), Astro.site).href : languagePath(value)} />
     ))}
-    <link rel="icon" href="/logo.svg" type="image/svg+xml" />
+    <link rel="icon" href={withBase("logo.svg")} type="image/svg+xml" />
     <title>{title}</title>
   </head>
   <body class="a">
@@ -43,7 +43,7 @@ const canonical = Astro.site ? new URL(languagePath(locale), Astro.site) : undef
       </main>
       <footer>
         <a class="brand" href={languagePath(locale)}>
-          <img src="/logo.svg" alt="" width="28" height="28" loading="lazy" />
+          <img src={withBase("logo.svg")} alt="" width="28" height="28" loading="lazy" />
           <span>BranchNote</span>
         </a>
         <span>{c.foot}</span>

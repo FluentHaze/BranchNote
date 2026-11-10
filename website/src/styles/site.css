@@ -336,3 +336,22 @@ button {
     object-fit: contain;
   }
 }
+
+.git-flow-entry {
+  margin-top: 36px;
+  padding: clamp(20px, 4vw, 36px);
+  border-radius: 18px;
+  background: #111824;
+}
+.git-flow-entry h3 { margin: 0 0 12px; font-size: clamp(20px, 3vw, 28px); text-wrap: balance; }
+.git-flow-entry > p { max-width: 72ch; color: var(--muted); text-wrap: pretty; }
+.git-flow-entry .actions { flex-wrap: wrap; }
+.release-link { text-decoration: underline; text-underline-offset: 4px; }
+.download-notice { max-width: 74ch; line-height: 1.7; }
+.download .download-notice { margin-inline: auto; }
+.a a.download-trigger:hover { background: #27364b; }
+.a a.download-trigger.is-current:hover { background: #f1f5ff; }
+.a a.download-trigger:active { transform: translateY(1px); }
+@media (prefers-reduced-motion: reduce) {
+  .a a.download-trigger:active { transform: none; }
+}

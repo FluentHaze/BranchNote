@@ -4,6 +4,8 @@
 
 数据保存在本机，无需注册 BranchNote 账号。创建合并请求和同步状态需要连接你的 GitLab 或 GitHub。文中统一称为 MR，GitHub 对应 Pull Request（PR）。
 
+官网：[产品介绍、下载与 Git 工作流](https://fluenthaze.github.io/BranchNote/)
+
 ## 安装与开始使用
 
 在项目的 [Releases 页面](https://github.com/FluentHaze/BranchNote/releases)查看是否有适合你系统的安装包：Windows 使用 `.exe`，macOS 使用 `.dmg`。只有发布页实际提供的版本和平台才可下载；若没有安装包，当前还不能直接安装，请等待维护者提供发行版。

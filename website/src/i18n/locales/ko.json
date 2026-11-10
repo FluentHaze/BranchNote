@@ -97,8 +97,12 @@
     "win": "Windows용 다운로드",
     "mac": "macOS용 다운로드",
     "hint": "데스크톱 앱 · 로컬 저장 · 가입 불필요",
-    "notice": "다운로드 준비 중",
-    "current": "현재 기기"
+    "notice": "Windows 설치 파일은 아직 제공되지 않습니다",
+    "current": "현재 기기",
+    "macIntel": "macOS · Intel",
+    "macArm": "macOS · Apple Silicon",
+    "releaseNotes": "릴리스 노트 및 전체 파일",
+    "macNotice": "macOS 앱은 로컬 서명되었으며 Apple 공증은 받지 않았습니다. 처음 실행할 때 시스템 보안 안내를 따르세요."
   },
   "h1": "번거로운 MR 제출을,",
   "h2": "하나의 흐름으로.",
@@ -111,5 +115,12 @@
   "graph": {
     "sandbox": "독립된 임시 저장소",
     "clean": "충돌 없음"
+  },
+  "gitFlow": {
+    "flowTitle": "충돌 후에는 어떤 브랜치를 사용하나요?",
+    "flowIntro": "기능 개발, 임시 브랜치 통합, MR 생성과 플랫폼 병합까지 각 브랜치의 역할과 보관 시점을 확인하세요.",
+    "flowOpen": "대화형 Git 흐름도 열기",
+    "flowGuide": "자세한 Git 워크플로 읽기",
+    "flowLanguage": "흐름도와 상세 가이드는 현재 중국어 간체로 제공됩니다."
   }
 }

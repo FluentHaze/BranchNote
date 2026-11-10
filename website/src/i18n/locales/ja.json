@@ -97,8 +97,12 @@
     "win": "Windows 版をダウンロード",
     "mac": "macOS 版をダウンロード",
     "hint": "デスクトップアプリ · ローカル保存 · 登録不要",
-    "notice": "ダウンロードは近日公開",
-    "current": "このデバイス向け"
+    "notice": "Windows インストーラーは準備中です",
+    "current": "このデバイス向け",
+    "macIntel": "macOS · Intel",
+    "macArm": "macOS · Apple Silicon",
+    "releaseNotes": "リリースノートと全ファイル",
+    "macNotice": "macOS 版はローカル署名済みですが、Apple の公証は未取得です。初回起動時はシステムの案内に従ってください。"
   },
   "h1": "MR 提出の手間を、",
   "h2": "ひとつの流れに。",
@@ -111,5 +115,12 @@
   "graph": {
     "sandbox": "独立した一時リポジトリ",
     "clean": "競合なし"
+  },
+  "gitFlow": {
+    "flowTitle": "競合の後、どのブランチを使う？",
+    "flowIntro": "機能開発から一時ブランチでの統合、MR 作成、プラットフォームでのマージまで、ブランチの役割と保持期間を確認できます。",
+    "flowOpen": "Git の対話型フローを開く",
+    "flowGuide": "詳しい Git ワークフローを読む",
+    "flowLanguage": "フロー図と詳細ガイドは現在、簡体字中国語で提供しています。"
   }
 }

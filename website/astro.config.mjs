@@ -2,7 +2,8 @@ import { defineConfig } from "astro/config";
 import react from "@astrojs/react";
 
 export default defineConfig({
-  site: process.env.SITE_URL,
+  site: process.env.SITE_URL ?? "https://fluenthaze.github.io",
+  base: process.env.SITE_BASE_PATH ?? "/BranchNote/",
   output: "static",
   trailingSlash: "always",
   integrations: [react()],

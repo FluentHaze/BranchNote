@@ -89,4 +89,4 @@ feature/login 的提交
 
 原功能有新提交时，在台账中重置对应目标状态，再发起新的提交。状态代表记录的那次 MR，不是对未来每次提交的自动保证。
 
-回到[使用指南](../README.md)。
+回到 [BranchNote 官网](https://fluenthaze.github.io/BranchNote/zh-CN/)，或阅读仓库中的 [使用指南](https://github.com/FluentHaze/BranchNote/blob/main/README.md)。

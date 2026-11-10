@@ -24,4 +24,6 @@ export const languageNames: Record<Locale, string> = {
   ko: "한국어",
 };
 
-export const languagePath = (locale: Locale) => `/${locale}/`;
+export const withBase = (path: string) => `${import.meta.env.BASE_URL.replace(/\/$/, "")}/${path.replace(/^\//, "")}`;
+
+export const languagePath = (locale: Locale) => withBase(`${locale}/`);

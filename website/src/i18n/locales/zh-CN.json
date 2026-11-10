@@ -97,8 +97,12 @@
     "win": "下载 Windows 版",
     "mac": "下载 macOS 版",
     "hint": "桌面应用 · 本地保存 · 无需注册",
-    "notice": "下载即将开放",
-    "current": "当前设备"
+    "notice": "Windows 安装包暂未提供",
+    "current": "当前设备",
+    "macIntel": "macOS · Intel",
+    "macArm": "macOS · Apple Silicon",
+    "releaseNotes": "版本说明与全部文件",
+    "macNotice": "macOS 使用本地签名，未经过 Apple 公证；首次打开请遵循系统安全提示。"
   },
   "h1": "提交 MR，",
   "h2": "不必来回折腾。",
@@ -111,5 +115,12 @@
   "graph": {
     "sandbox": "独立临时仓库",
     "clean": "未发现冲突"
+  },
+  "gitFlow": {
+    "flowTitle": "冲突之后，分支该怎么走？",
+    "flowIntro": "从功能开发、临时分支整合，到提交 MR 和平台合并，查看每一步由谁完成、哪些分支需要保留。",
+    "flowOpen": "打开交互流程图",
+    "flowGuide": "阅读详细 Git 工作流",
+    "flowLanguage": "流程图与详细指南目前提供简体中文。"
   }
 }
