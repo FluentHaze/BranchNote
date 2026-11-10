@@ -1,0 +1,56 @@
+---
+import type { Copy } from "../i18n";
+import WorkflowIcon from "./WorkflowIcon";
+interface Props { copy: Copy; }
+const { copy: c } = Astro.props;
+const icons = ["branch", "target", "preflight", "sync"] as const;
+---
+
+<section class="mr-advantage">
+  <div class="advantage-intro">
+    <h2>{c.fhead}</h2>
+    <p>{c.fintro}</p>
+  </div>
+  <div class="advantage-grid">
+    <div class="old-flow">
+      <h3>{c.before}</h3>
+      <div class="old-flow-steps">
+        {c.beforesteps.map(step => (
+          <div>
+            <span class="old-flow-dot" aria-hidden="true"></span>
+            <span>{step}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+    <div class="connected-flow">
+      <h3>{c.after}</h3>
+      <p>{c.aftertext}</p>
+      <div class="flow-pills" aria-hidden="true">
+        <code>feature/*</code>
+        <svg viewBox="0 0 60 16" width="60" height="16" fill="none" stroke="currentColor">
+          <path d="M0 8h56m-5-5 5 5-5 5" />
+        </svg>
+        <code>MR / PR</code>
+      </div>
+    </div>
+  </div>
+  <p class="advantage-note">{c.boundary}</p>
+</section>
+<section id="features">
+  <div class="sectionhead">
+    <h2>{c.inspect}</h2>
+    <p>{c.fintro}</p>
+  </div>
+  <div class="featurelist">
+    {c.ft.map((title, index) => (
+      <article class="feature">
+        <div class="symbol" aria-hidden="true">
+          <WorkflowIcon kind={icons[index]} />
+        </div>
+        <h3>{title}</h3>
+        <p>{c.fd[index]}</p>
+      </article>
+    ))}
+  </div>
+</section>

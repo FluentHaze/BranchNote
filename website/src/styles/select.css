@@ -1,0 +1,91 @@
+.custom-select {
+  display: inline-block;
+  min-width: 0;
+}
+
+.select-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  width: 100%;
+  min-height: 44px;
+  padding: 11px 14px;
+  border: 0;
+  border-radius: 8px;
+  background: #1c2739;
+  color: #d4e1f6;
+  font-size: 13px;
+  text-align: left;
+  transition: background 160ms ease;
+}
+
+.select-trigger:hover:enabled,
+.select-trigger[aria-expanded="true"] {
+  background: #293b55;
+}
+
+.select-trigger > span { overflow-wrap: anywhere; }
+.select-trigger > svg { flex-shrink: 0; color: #9db3d5; }
+.select-trigger:disabled { cursor: default; color: #8391a9; background: #172030; }
+
+.select-menu {
+  position: fixed;
+  inset: auto;
+  margin: 0;
+  padding: 6px;
+  overflow-y: auto;
+  border: 1px solid #a9c4ee20;
+  border-radius: 12px;
+  background: #182232;
+  color: #dce7f8;
+  box-shadow: 0 18px 45px #0008;
+  font-family: "Branch Sans";
+}
+
+.select-menu::backdrop { background: transparent; }
+
+.select-menu [role="option"] {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  width: 100%;
+  min-height: 44px;
+  margin: 2px 0;
+  padding: 10px 13px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: #bfcee6;
+  font: inherit;
+  font-size: 14px;
+  text-align: left;
+}
+
+.select-menu [role="option"]:hover,
+.select-menu [role="option"]:focus-visible {
+  outline: none;
+  background: #304460;
+  color: #f4f7fd;
+}
+
+.select-menu [role="option"][aria-selected="true"] {
+  background: #d9e6ff;
+  color: #172840;
+}
+
+.option-check { flex-shrink: 0; }
+.custom-select.language { padding: 0; width: 124px; max-width: none; opacity: 1; }
+.language .select-trigger { color: #b9c7de; background: transparent; font-size: 12px; }
+.language .select-trigger:hover { background: #1c2739; }
+.mr-compose > .custom-select { display: block; width: 100%; }
+.preview-controls { margin: -8px 0 20px; }
+.preview-controls > .custom-select { min-width: 235px; max-width: 100%; }
+
+@media (max-width: 600px) {
+  .custom-select.language { width: 110px; }
+  .language .select-trigger { padding: 10px; gap: 8px; }
+  .mr-compose .select-trigger { font-size: 14px; }
+  .preview-controls > .custom-select { display: block; width: 100%; }
+}

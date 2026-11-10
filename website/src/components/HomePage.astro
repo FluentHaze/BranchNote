@@ -1,0 +1,20 @@
+---
+import { translations, type Locale } from "../i18n";
+import SiteLayout from "../layouts/SiteLayout.astro";
+import Hero from "./Hero.astro";
+import Features from "./Features.astro";
+import ProductProof from "./ProductProof.astro";
+import StatusPreview from "./StatusPreview";
+import MoreSections from "./MoreSections.astro";
+interface Props { locale: Locale; }
+const { locale } = Astro.props;
+const copy = translations[locale];
+---
+
+<SiteLayout copy={copy} locale={locale}>
+  <Hero copy={copy} />
+  <Features copy={copy} />
+  <ProductProof copy={copy} />
+  <StatusPreview copy={copy} client:visible />
+  <MoreSections copy={copy} />
+</SiteLayout>

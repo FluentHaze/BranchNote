@@ -1,0 +1,55 @@
+---
+import type { Copy } from "../i18n";
+import DownloadButtons from "./DownloadButtons.astro";
+interface Props { copy: Copy; }
+const { copy: c } = Astro.props;
+const questions = [
+  { question: c.q1, answer: c.a1 },
+  { question: c.q2, answer: c.a2 },
+  { question: c.q3, answer: c.a3 },
+];
+---
+
+<section id="workflow">
+  <h2>{c.work}</h2>
+  <div class="workflow">
+    {c.steps.map((step, index) => (
+      <div class="step">
+        <code>{["git branch", "review details", "create MR", "status sync"][index]}</code>
+        <p>{step}</p>
+      </div>
+    ))}
+  </div>
+</section>
+<section>
+  <div class="privacy">
+    <div>
+      <h2>{c.privacy}</h2>
+      <p>{c.privacytext}</p>
+    </div>
+    <div class="vault" aria-hidden="true">
+      <img src="/logo.svg" alt="" width="80" height="80" loading="lazy" />
+      <code>
+        ~/BranchNote/<br />
+        branchnote.json<br />
+        backup.json
+      </code>
+    </div>
+  </div>
+</section>
+<section class="download" id="download">
+  <h2>{c.get}</h2>
+  <p>{c.getintro}</p>
+  <DownloadButtons copy={c} />
+</section>
+<section class="faq">
+  <h2>{c.faq}</h2>
+  <div>
+    {questions.map(({ question, answer }) => (
+      <details>
+        <summary>{question}</summary>
+        <p>{answer}</p>
+      </details>
+    ))}
+  </div>
+</section>

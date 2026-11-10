@@ -1,0 +1,481 @@
+.statusrow:last-child {
+  border-bottom: 0px;
+}
+
+.statusrow code {
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+.statusrow .good {
+  color: var(--accent);
+}
+
+.statushead {
+  font-size: 12px;
+  color: var(--muted);
+  padding: 7px 0px 18px;
+}
+
+.a .statusrow .good {
+  color: rgb(156, 231, 189);
+}
+
+@media (max-width: 600px) {
+.statuslist {
+  padding: 15px;
+}
+
+.statusrow {
+  gap: 8px;
+  font-size: 12px;
+}
+
+.statusrow code {
+  font-size: 12px;
+}
+}
+
+@font-face {
+  font-family: "Branch Sans";
+  src: url("../assets/branch-sans.woff2") format("woff2");
+  font-weight: 100 900;
+  font-display: swap;
+}
+
+body {
+  font-family: "Branch Sans";
+  -webkit-font-smoothing: antialiased;
+}
+
+.wrap {
+  width: min(1200px, 100% - 112px);
+}
+
+nav {
+  height: 88px;
+  border-color: var(--line);
+}
+
+.brand {
+  font-size: 21px;
+  font-weight: 600;
+  letter-spacing: -0.8px;
+  gap: 10px;
+}
+
+.brand img {
+  width: 31px;
+  height: 31px;
+}
+
+.navlinks {
+  font-size: 13px;
+  gap: 30px;
+}
+
+.language {
+  border: 0px;
+  font-size: 12px;
+  opacity: 0.85;
+  max-width: 110px;
+}
+
+.navdl {
+  font-size: 12px;
+  font-weight: 500;
+  border-radius: 24px;
+  padding: 9px 20px;
+  background: var(--panel);
+}
+
+.eyebrow {
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 1px;
+}
+
+.eyebrow::before {
+  width: 5px;
+  height: 5px;
+}
+
+h1 {
+  text-wrap: balance;
+  font-weight: 500;
+  letter-spacing: -3.8px;
+}
+
+h2 {
+  font-weight: 500;
+  letter-spacing: -1.8px;
+  text-wrap: balance;
+}
+
+h3 {
+  font-weight: 500;
+  font-size: 19px;
+}
+
+p {
+  text-wrap: pretty;
+}
+
+.intro {
+  font-size: 15px;
+  line-height: 2;
+  font-weight: 350;
+}
+
+.button {
+  padding: 13px 21px;
+  font-size: 13px;
+  font-weight: 500;
+  border-radius: 7px;
+  line-height: 1.5;
+  gap: 10px;
+}
+
+.button svg {
+  flex-shrink: 0;
+}
+
+.smallnote {
+  font-size: 11px;
+  font-weight: 350;
+  letter-spacing: 0.3px;
+}
+
+.primary {
+  box-shadow: rgba(255, 255, 255, 0.44) 0px 1px 0px inset, rgba(0, 0, 0, 0.07) 0px 4px 12px;
+}
+
+section {
+  padding: 100px 0px;
+}
+
+.sectionhead > p {
+  font-size: 14px;
+}
+
+.featurelist {
+  gap: 50px 80px;
+}
+
+.feature {
+  padding-top: 30px;
+}
+
+.feature .symbol {
+  font-size: 26px;
+  font-weight: 400;
+}
+
+.feature p {
+  font-weight: 350;
+  font-size: 14px;
+  line-height: 1.95;
+}
+
+.product {
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+}
+
+.product img {
+  height: auto;
+}
+
+.caption {
+  font-size: 11px;
+  letter-spacing: 0.4px;
+}
+
+.download-actions {
+  justify-content: center;
+}
+
+.download h2 {
+  font-weight: 450;
+}
+
+.a {
+  --bg: #090b10;
+  --ink: #e8ebf2;
+  --muted: #989daa;
+  --line: #ffffff10;
+  --accent: #e8edf7;
+  --btn: #161a23;
+  --panel: #ffffff06;
+  background: radial-gradient(65% 28% at 50% 12%, rgba(25, 32, 54, 0.314), transparent), rgb(9, 11, 16);
+}
+
+.a .hero {
+  padding: 58px 0px 0px;
+}
+
+.a .herohead {
+  display: block;
+  text-align: center;
+}
+
+.a .herohead > div {
+  position: relative;
+  z-index: 2;
+}
+
+.a .eyebrow {
+  justify-content: center;
+  color: rgb(167, 178, 201);
+}
+
+.a .eyebrow::before {
+  background: rgb(168, 199, 251);
+  box-shadow: rgba(168, 199, 251, 0.5) 0px 0px 12px;
+}
+
+.a h1 {
+  font-size: clamp(48px, 5vw, 68px);
+  line-height: 1.25;
+  margin: 20px 0px;
+  font-weight: 500;
+}
+
+.a h1 span:last-child {
+  color: rgb(158, 169, 190);
+}
+
+.a .intro {
+  max-width: 550px;
+  margin: 0px auto;
+  color: rgb(150, 157, 172);
+  font-size: 14px;
+}
+
+.a .actions {
+  justify-content: center;
+  margin: 27px 0px 15px;
+}
+
+.a .button:not(.primary) {
+  background: rgba(255, 255, 255, 0.024);
+  border-color: rgba(255, 255, 255, 0.125);
+  color: rgb(208, 214, 225);
+}
+
+.a .smallnote {
+  color: rgb(119, 127, 144);
+}
+
+.cinema-stage {
+  position: relative;
+  padding: 35px 60px 0px;
+  margin-top: 12px;
+}
+
+.stage-halo {
+  position: absolute;
+  inset: 30px -50px auto;
+  height: 440px;
+  background: radial-gradient(at 50% 45%, rgba(131, 157, 240, 0.22), transparent 65%);
+  filter: blur(25px);
+  pointer-events: none;
+}
+
+.a .hero .product {
+  margin: 0px;
+  position: relative;
+  transform: perspective(1800px) rotateX(7deg);
+  transform-origin: center top;
+  max-height: 420px;
+  padding: 5px;
+  border-radius: 14px;
+  background: linear-gradient(rgb(56, 63, 82), rgb(20, 26, 37));
+  box-shadow: rgba(255, 255, 255, 0.145) 0px -1px 0px, rgba(255, 255, 255, 0.01) 0px 0px 0px 6px, rgba(0, 0, 0, 0.667) 0px 50px 100px;
+}
+
+.a .hero .product::before {
+  height: 24px;
+  background: rgb(26, 32, 43);
+  border: 0px;
+  border-radius: 9px 9px 0px 0px;
+}
+
+.a .hero .product img {
+  border-radius: 3px;
+}
+
+.a .caption {
+  position: relative;
+  margin-top: 24px;
+  color: rgb(116, 125, 144);
+}
+
+.a .supportline {
+  padding: 26px 0px 30px;
+  font-family: "Branch Sans";
+  font-size: 11px;
+  color: rgb(113, 123, 142);
+}
+
+.a .feature .symbol {
+  color: rgb(168, 185, 223);
+}
+
+.a .graphbox {
+  background: radial-gradient(at center top, rgba(37, 48, 71, 0.22), transparent), rgba(255, 255, 255, 0.01);
+  border-color: rgba(255, 255, 255, 0.07);
+  padding: 45px 20px;
+}
+
+.a .statuslist {
+  background: linear-gradient(140deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0.008));
+  border-color: rgba(255, 255, 255, 0.094);
+  box-shadow: rgba(255, 255, 255, 0.03) 0px 1px 0px inset, rgba(0, 0, 0, 0.2) 0px 30px 80px;
+}
+
+.a .tab[aria-selected="true"] {
+  color: rgb(226, 232, 242);
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.19);
+}
+
+.a .vault {
+  background: radial-gradient(circle at 30% 50%, rgba(40, 50, 76, 0.333), transparent 70%), rgba(255, 255, 255, 0.01);
+}
+
+.a .download {
+  background: radial-gradient(at 50% 65%, rgba(36, 50, 81, 0.314), transparent 65%);
+}
+
+.a .intro {
+  font-size: 15px;
+}
+
+.smallnote {
+  font-size: 12px;
+}
+
+.button {
+  font-size: 14px;
+}
+
+@media (max-width: 900px) {
+.wrap {
+  width: calc(100% - 48px);
+}
+}
+
+@media (max-width: 600px) {
+.wrap {
+  width: calc(100% - 40px);
+}
+
+nav {
+  height: 76px;
+}
+
+.brand {
+  font-size: 18px;
+}
+
+.brand img {
+  width: 29px;
+  height: 29px;
+}
+
+.language {
+  max-width: 98px;
+}
+
+h1,
+ .a h1 {
+  font-size: 39px;
+  letter-spacing: -2px;
+  line-height: 1.38;
+}
+
+h2 {
+  font-size: 29px;
+  letter-spacing: -1px;
+}
+
+.eyebrow {
+  font-size: 11px;
+  letter-spacing: 0.3px;
+}
+
+.a .hero {
+  padding-top: 44px;
+}
+
+.intro,
+ .a .intro {
+  font-size: 16px;
+  line-height: 1.9;
+}
+
+.actions {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 10px;
+}
+
+.button {
+  font-size: 14px;
+  padding: 14px 12px;
+}
+
+.smallnote {
+  font-size: 12px;
+  letter-spacing: 0px;
+}
+
+.cinema-stage {
+  padding: 15px 0px 0px;
+}
+
+.stage-halo {
+  left: 0px;
+  right: 0px;
+}
+
+.a .hero .product {
+  padding: 3px;
+  max-height: 240px;
+  border-radius: 8px;
+  transform: none;
+}
+
+.a .hero .product::before {
+  height: 14px;
+}
+
+.a .hero .product img {
+  min-height: 0px;
+}
+
+.caption {
+  font-size: 12px;
+}
+
+.a .supportline {
+  font-size: 12px;
+}
+
+section {
+  padding: 55px 0px;
+}
+
+.feature p {
+  font-size: 16px;
+}
+
+.download h2 {
+  font-size: 36px;
+}
+
+.sectionhead > p {
+  font-size: 16px;
+}
+}

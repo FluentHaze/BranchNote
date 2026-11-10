@@ -1,0 +1,18 @@
+---
+import { Image } from "astro:assets";
+import product from "../assets/product.png";
+import type { Copy } from "../i18n";
+interface Props { copy: Copy; }
+const { copy: c } = Astro.props;
+---
+
+<section class="actual-proof">
+  <div class="sectionhead">
+    <h2>{c.proofhead}</h2>
+    <p>{c.prooftext}</p>
+  </div>
+  <div class="product">
+    <Image src={product} alt={c.cap} widths={[720, 1080, 1440]} sizes="(max-width: 600px) 90vw, 1080px" format="webp" loading="lazy" />
+  </div>
+  <p class="caption">{c.cap}</p>
+</section>

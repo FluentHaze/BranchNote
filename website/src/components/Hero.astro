@@ -1,0 +1,30 @@
+---
+import type { Copy } from "../i18n";
+import DownloadButtons from "./DownloadButtons.astro";
+import MrDemo from "./MrDemo";
+interface Props { copy: Copy; }
+const { copy: c } = Astro.props;
+---
+
+<header class="hero">
+  <div class="herohead">
+    <div>
+      <div class="eyebrow">{c.tag}</div>
+      <h1>
+        <span>{c.h1}</span>
+        <span>{c.h2}</span>
+      </h1>
+      <p class="intro">{c.intro}</p>
+      <DownloadButtons copy={c} />
+    </div>
+  </div>
+  <div class="cinema-stage">
+    <div class="stage-halo" aria-hidden="true"></div>
+    <MrDemo copy={c} client:load />
+  </div>
+</header>
+<div class="supportline" aria-label="GitLab / GitHub">
+  <span>GitLab / GitHub</span>
+  <span>Local Git. Clear context.</span>
+  <span>Made for parallel work.</span>
+</div>

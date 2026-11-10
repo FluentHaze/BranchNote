@@ -1,0 +1,50 @@
+---
+import type { Copy } from "../i18n";
+interface Props { copy: Copy; }
+const { copy: c } = Astro.props;
+---
+
+<div class="actions download-actions">
+  <button class="button download-trigger" data-platform="windows" type="button" disabled title={c.downloads.notice}>
+    <span class="download-symbol">
+      <svg viewBox="0 0 20 20" width="17" height="17" aria-hidden="true">
+        <path fill="currentColor" d="M2 3.5 8.5 2.6v6.7H2zm7.7-1.1L18 1.2v8.1H9.7zM2 10.5h6.5v6.8L2 16.4zm7.7 0H18v8.2l-8.3-1.2z" />
+      </svg>
+    </span>
+    <span class="download-copy">
+      <span>{c.downloads.win}</span>
+      <span class="current-device" hidden>{c.downloads.current}</span>
+    </span>
+  </button>
+  <button class="button download-trigger" data-platform="macos" type="button" disabled title={c.downloads.notice}>
+    <span class="download-symbol">
+      <svg viewBox="0 0 20 20" width="18" height="18" aria-hidden="true">
+        <path fill="currentColor" d="M12.8 3.1c.7-.8.7-1.7.7-2.1-.8 0-1.8.5-2.3 1.1-.5.6-.8 1.4-.7 2.1.9.1 1.7-.4 2.3-1.1M16.8 13.6c-.4 1-1.8 3.9-3.3 3.9-.8 0-1.2-.5-2.2-.5-1 0-1.5.5-2.2.5-1.7 0-3.8-3.6-3.8-6.4 0-2.4 1.5-3.8 3.1-3.8 1 0 1.8.6 2.5.6.6 0 1.6-.6 2.7-.6 1 0 2 .5 2.6 1.2-2.2 1.3-1.8 4.2.6 5.1" />
+      </svg>
+    </span>
+    <span class="download-copy">
+      <span>{c.downloads.mac}</span>
+      <span class="current-device" hidden>{c.downloads.current}</span>
+    </span>
+  </button>
+</div>
+<p class="smallnote">{c.downloads.hint}</p>
+
+<script>
+  const browserNavigator = navigator as Navigator & { userAgentData?: { platform: string } };
+  const platform = browserNavigator.userAgentData?.platform ?? navigator.userAgent;
+  const mobileApple = /iPhone|iPad|iPod/.test(navigator.userAgent)
+    || (/Mac/i.test(platform) && navigator.maxTouchPoints > 1);
+  const currentPlatform = /Windows/i.test(platform) ? "windows"
+    : /Mac/i.test(platform) && !mobileApple ? "macos" : null;
+
+  document.querySelectorAll<HTMLElement>(".download-actions").forEach(group => {
+    const currentButton = [...group.querySelectorAll<HTMLButtonElement>("[data-platform]")]
+      .find(button => button.dataset.platform === currentPlatform);
+    if (!currentButton) return;
+    currentButton.classList.add("primary", "is-current");
+    const badge = currentButton.querySelector<HTMLElement>(".current-device");
+    if (badge) badge.hidden = false;
+    group.prepend(currentButton);
+  });
+</script>

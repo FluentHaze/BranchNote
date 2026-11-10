@@ -1,0 +1,53 @@
+.overview-graph { margin: 22px 0 28px; }
+.feature .symbol > svg { width: 26px; height: 26px; }
+.pipeline-dot > svg { width: 14px; height: 14px; }
+.overview-graph-head,
+.overview-graph-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1.7fr) 1fr 1fr;
+  align-items: center;
+  gap: 10px;
+}
+
+.overview-graph-head { color: #94a6c2; font-size: 12px; }
+.overview-graph-head > span:not(:first-child) { text-align: right; padding-right: 4px; }
+.overview-graph-row { min-height: 78px; }
+.overview-graph-row > code { color: #bdcfea; font-size: 12px; overflow-wrap: anywhere; }
+.overview-stage { display: flex; align-items: center; color: #7587a3; }
+.state-merged { color: #96d8ba; }
+.state-opened { color: #e2c189; }
+.state-pending { color: #788aa6; }
+.flow-segment { flex: 1; height: 2px; background: currentColor; opacity: .65; }
+.state-opened .flow-segment,
+.state-pending .flow-segment { background: none; border-top: 1px dashed currentColor; }
+.flow-node { display: grid; place-items: center; width: 21px; height: 21px; border-radius: 50%; background: #202e42; font-size: 12px; }
+.state-merged .flow-node { color: #162d24; background: #96d8ba; }
+.state-opened .flow-node { background: #4b402b; }
+
+.target-tracks,
+.preflight-tracks { grid-template-columns: 144px minmax(0, 1fr); }
+.target-tracks .track-labels > code,
+.preflight-tracks .track-labels > code { color: #bfd1ee; font-size: 12px; overflow-wrap: anywhere; }
+.preflight-tracks .track-labels { grid-template-rows: repeat(2, 1fr); }
+.merge-path.state-merged { stroke: #96d8ba; }
+.merge-path.state-opened { stroke: #e2c189; stroke-dasharray: 5 5; }
+.merge-path.state-pending { stroke: #788aa6; stroke-dasharray: 3 6; opacity: .6; }
+.preflight-source { stroke: #abc4ff; }
+.preflight-target { stroke: #8dd3b7; }
+.graph-destination-node { position: absolute; display: grid; place-items: center; width: 29px; height: 29px; transform: translate(-50%, -50%); border-radius: 9px; background: #d1e2ff; color: #23344e; }
+.branch-chart[data-mode="preflight"] .graph-destination-node { color: #163827; background: #96d8ba; }
+.statusrow.target-statusrow { grid-template-columns: minmax(0, 1fr) 150px; }
+.preflight-heading { color: #d4e2f6; font-size: 18px; margin: 0 0 20px; }
+.preflight-detail { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 18px 0; border-bottom: 1px solid #ffffff0b; font-size: 13px; }
+.preflight-detail > span:first-child { color: #93a7c5; }
+.preflight-detail code { color: #d1e1fa; font-size: 12px; overflow-wrap: anywhere; }
+.statuslist > p { margin: 24px 0 0; font-size: 14px; line-height: 1.9; color: #a2b5d1; }
+.status-pill.good { color: #97d7b7; }
+.chart-footer > span { overflow-wrap: anywhere; }
+.chart-footer .chart-destination { text-align: right; }
+
+@media (max-width: 600px) {
+  .target-tracks, .preflight-tracks { grid-template-columns: 125px minmax(0, 1fr); }
+  .statusrow.target-statusrow { grid-template-columns: minmax(0, 1fr) 130px; }
+  .preflight-detail { flex-wrap: wrap; gap: 8px; }
+}

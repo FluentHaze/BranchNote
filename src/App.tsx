@@ -736,6 +736,7 @@ export default function App() {
           initialStage={submit.stage}
           store={store}
           commit={commit}
+          copy={copy}
           close={() => setSubmit(null)}
           openSettings={() => {
             setSubmit(null);

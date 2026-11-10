@@ -1,0 +1,26 @@
+---
+import { languageNames, languagePath, locales, type Copy, type Locale } from "../i18n";
+import LanguagePicker from "./LanguagePicker";
+interface Props { copy: Copy; locale: Locale; }
+const { copy: c, locale } = Astro.props;
+---
+
+<nav aria-label="BranchNote">
+  <a class="brand" href={languagePath(locale)} aria-label="BranchNote">
+    <img src="/logo.svg" alt="" width="31" height="31" />
+    <span>BranchNote</span>
+  </a>
+  <div class="navlinks">
+    <a href="#features">{c.nav}</a>
+    <a href="#workflow">{c.flow}</a>
+    <a href="https://github.com/FluentHaze/BranchNote/blob/main/README.md" target="_blank" rel="noopener noreferrer">{c.docs}</a>
+  </div>
+  <div class="tools">
+    <LanguagePicker
+      value={languagePath(locale)}
+      options={locales.map(value => ({ value: languagePath(value), label: languageNames[value], lang: value }))}
+      client:load
+    />
+    <a class="navdl" href="#download">{c.download}</a>
+  </div>
+</nav>

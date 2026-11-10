@@ -1,0 +1,21 @@
+.mr-links {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.mr-copy {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 24px;
+  min-height: 24px;
+  padding: 4px;
+  border-radius: 5px;
+  background: transparent;
+  color: #5873cd;
+}
+
+.mr-copy:hover {
+  background: var(--accent-soft);
+}

@@ -1,0 +1,878 @@
+.a .hero {
+  padding-top: 32px;
+}
+
+.a h1 {
+  font-size: clamp(42px, 4.2vw, 60px);
+  line-height: 1.22;
+  letter-spacing: -3px;
+  margin: 18px 0px;
+}
+
+.a h1 span {
+  display: inline;
+}
+
+.a h1 span:last-child {
+  margin-left: 0.1em;
+}
+
+.a .hero .intro {
+  max-width: 620px;
+  font-size: 15px;
+  line-height: 1.9;
+}
+
+.a .hero .actions {
+  margin: 23px 0px 13px;
+}
+
+.a .hero .smallnote {
+  margin-bottom: 0px;
+}
+
+.a .cinema-stage {
+  margin-top: 26px;
+  padding: 0px 12px;
+}
+
+.a .stage-halo {
+  inset: 30px -20px auto;
+  height: 400px;
+  background: radial-gradient(rgba(118, 152, 227, 0.19), transparent 66%);
+}
+
+.mr-illustration {
+  position: relative;
+  z-index: 1;
+}
+
+.illustration-overline {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+  padding: 0px 4px;
+  color: rgb(144, 155, 173);
+  font-size: 12px;
+}
+
+.illustration-mark {
+  font: 11px "Branch Sans";
+  color: rgb(109, 122, 145);
+}
+
+.mr-window {
+  border: 1px solid rgba(103, 117, 140, 0.35);
+  border-radius: 13px;
+  background: linear-gradient(145deg, rgb(28, 36, 49), rgb(16, 22, 32) 65%);
+  box-shadow: rgba(255, 255, 255, 0.01) 0px 0px 0px 5px, rgba(0, 0, 0, 0.533) 0px 35px 100px, rgba(255, 255, 255, 0.04) 0px 1px 0px inset;
+  overflow: hidden;
+}
+
+.mr-titlebar {
+  display: flex;
+  gap: 18px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 13px 18px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.047);
+  background: rgba(255, 255, 255, 0.01);
+  color: rgb(157, 168, 189);
+  font-size: 12px;
+}
+
+.mr-titlebar > .mono {
+  font-size: 11px;
+  color: rgb(111, 124, 148);
+}
+
+.window-lights {
+  display: flex;
+  gap: 6px;
+}
+
+.window-lights i {
+  width: 7px;
+  height: 7px;
+  border: 1px solid rgba(255, 255, 255, 0.125);
+  background: rgba(110, 120, 135, 0.255);
+  border-radius: 50%;
+}
+
+.mr-layout {
+  display: grid;
+  grid-template-columns: 164px 1fr 330px;
+}
+
+.mr-sidebar {
+  border-right: 1px solid rgba(255, 255, 255, 0.043);
+  background: rgba(11, 17, 27, 0.25);
+  padding: 22px 13px;
+  position: relative;
+}
+
+.mr-sidebar > img {
+  margin: 0px 9px 24px;
+  width: 28px;
+  height: 28px;
+}
+
+.sidebar-label {
+  font-size: 11px;
+  color: rgb(109, 124, 149);
+  margin: 0px 9px 12px;
+}
+
+.sidebar-project {
+  padding: 10px 9px;
+  border-radius: 5px;
+  color: rgb(146, 158, 179);
+  font-size: 11px;
+  margin-bottom: 3px;
+  white-space: nowrap;
+}
+
+.sidebar-project.active {
+  background: rgba(136, 170, 255, 0.07);
+  color: rgb(200, 213, 239);
+  border: 1px solid rgba(155, 186, 255, 0.075);
+}
+
+.sidebar-bottom {
+  color: rgb(104, 117, 139);
+  font-size: 9px;
+  margin: 35px 0px 0px 9px;
+  overflow-wrap: anywhere;
+}
+
+.mr-branches {
+  padding: 22px 22px 15px;
+  min-width: 0px;
+}
+
+.branch-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.branch-heading h3 {
+  margin: 0px;
+  font-size: 17px;
+  color: rgb(220, 227, 240);
+}
+
+.branch-heading > span {
+  font-size: 10px;
+  color: rgb(108, 121, 144);
+}
+
+.branch-guidance {
+  font-size: 12px;
+  margin: 8px 0px 19px;
+  color: rgb(130, 144, 167);
+}
+
+.branch-table-head {
+  display: flex;
+  justify-content: space-between;
+  padding: 0px 10px 10px 31px;
+  font-size: 10px;
+  color: rgb(113, 128, 151);
+}
+
+.demo-branch {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  min-height: 68px;
+  border: 1px solid rgba(255, 255, 255, 0.03);
+  border-radius: 6px;
+  margin-bottom: 8px;
+  padding: 12px;
+  cursor: pointer;
+  background: rgba(255, 255, 255, 0.008);
+  transition: background 0.2s, border-color 0.2s;
+}
+
+.demo-branch.chosen {
+  background: linear-gradient(100deg, rgba(138, 175, 255, 0.055), rgba(115, 151, 239, 0.02));
+  border-color: rgba(157, 187, 255, 0.153);
+}
+
+.demo-branch:hover {
+  border-color: rgba(157, 187, 255, 0.314);
+}
+
+.demo-branch input {
+  accent-color: rgb(165, 189, 232);
+  width: 14px;
+  height: 14px;
+  margin: 0px;
+  flex-shrink: 0;
+}
+
+.demo-branch > svg {
+  color: rgb(131, 154, 192);
+  flex-shrink: 0;
+  width: 15px;
+  height: 15px;
+}
+
+.demo-branch:has(input:focus-visible) {
+  outline: rgb(173, 200, 255) solid 2px;
+  outline-offset: 2px;
+}
+
+.branch-detail {
+  display: flex;
+  flex: 1 1 0%;
+  flex-direction: column;
+  min-width: 0px;
+}
+
+.branch-detail code {
+  font: 12px "Branch Sans";
+  color: rgb(202, 214, 235);
+  overflow-wrap: anywhere;
+}
+
+.branch-detail > span {
+  font-size: 11px;
+  color: rgb(126, 141, 166);
+  margin-top: 4px;
+}
+
+.branch-ready {
+  font-size: 10px;
+  color: rgb(133, 146, 169);
+  white-space: nowrap;
+}
+
+.branch-selection {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 11px;
+  color: rgb(150, 166, 193);
+  padding: 6px 0px 0px;
+}
+
+.branch-selection > svg {
+  color: rgb(116, 136, 172);
+}
+
+.mr-compose {
+  border-left: 1px solid rgba(255, 255, 255, 0.063);
+  padding: 22px 23px;
+  background: linear-gradient(135deg, rgba(142, 176, 255, 0.035), rgba(255, 255, 255, 0.008));
+}
+
+.compose-heading {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  margin-bottom: 22px;
+}
+
+.compose-heading h3 {
+  margin: 0px;
+  font-size: 15px;
+  color: rgb(217, 226, 245);
+}
+
+.compose-heading > svg {
+  color: rgb(178, 200, 239);
+  flex-shrink: 0;
+}
+
+.mr-compose > label {
+  display: block;
+  color: rgb(142, 156, 182);
+  font-size: 11px;
+  margin: 13px 0px 7px;
+}
+
+.mr-compose > select,
+ .mr-compose > input {
+  display: block;
+  width: 100%;
+  min-width: 0px;
+  border: 1px solid rgba(193, 211, 255, 0.145);
+  border-radius: 5px;
+  padding: 9px 10px;
+  font-size: 12px;
+  min-height: 37px;
+  color: rgb(201, 213, 234);
+  background: rgba(11, 17, 27, 0.396);
+}
+
+.mr-compose > select {
+  font-family: "Branch Sans";
+}
+
+.mr-compose option {
+  color: rgb(201, 213, 234);
+  background: rgb(23, 33, 50);
+}
+
+.title-help {
+  display: block;
+  font-size: 10px;
+  color: rgb(114, 129, 156);
+  margin-top: 7px;
+}
+
+.bundle-hint {
+  font-size: 10px;
+  color: rgb(144, 160, 188);
+  margin: 20px 0px 10px;
+}
+
+.submit-demo {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  min-height: 41px;
+  border-radius: 5px;
+  border: 1px solid rgba(229, 237, 252, 0.48);
+  color: rgb(28, 41, 65);
+  font-size: 12px;
+  font-weight: 600;
+  background: linear-gradient(rgb(224, 233, 248), rgb(189, 205, 230));
+  box-shadow: rgba(255, 255, 255, 0.52) 0px 1px 0px inset, rgba(0, 0, 0, 0.133) 0px 3px 12px;
+}
+
+.submit-demo:hover {
+  background: rgb(228, 237, 255);
+}
+
+.submit-demo:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.mr-pipeline {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  border-top: 1px solid rgba(255, 255, 255, 0.063);
+  background: rgba(9, 15, 25, 0.314);
+  padding: 17px 28px;
+}
+
+.pipeline-step {
+  display: flex;
+  gap: 11px;
+  align-items: center;
+  position: relative;
+  color: rgb(122, 136, 161);
+  font-size: 11px;
+}
+
+.pipeline-step:not(:last-child)::after {
+  content: "";
+  position: absolute;
+  left: 65%;
+  right: -8px;
+  top: 50%;
+  height: 1px;
+  background: linear-gradient(90deg, rgba(140, 165, 207, 0.19), rgba(140, 165, 207, 0.03));
+}
+
+.pipeline-dot {
+  width: 25px;
+  height: 25px;
+  border: 1px solid rgba(138, 166, 208, 0.14);
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  color: rgb(129, 148, 180);
+  font: 14px "Branch Sans";
+  flex-shrink: 0;
+}
+
+.pipeline-step.complete {
+  color: rgb(182, 203, 191);
+}
+
+.pipeline-step.complete .pipeline-dot {
+  color: rgb(166, 204, 183);
+  border-color: rgba(157, 195, 173, 0.314);
+  background: rgba(164, 208, 184, 0.04);
+}
+
+.pipeline-step.running {
+  color: rgb(216, 229, 252);
+}
+
+.pipeline-step.running .pipeline-dot {
+  color: rgb(216, 229, 252);
+  background: rgba(173, 200, 255, 0.09);
+  border-color: rgba(173, 200, 255, 0.5);
+  box-shadow: rgba(173, 200, 255, 0.09) 0px 0px 17px;
+}
+
+.demo-result {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 39px;
+  padding: 10px 28px;
+  background: rgba(162, 191, 255, 0.02);
+  border-top: 1px solid rgba(255, 255, 255, 0.03);
+  font-size: 11px;
+  color: rgb(143, 158, 184);
+}
+
+.result-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: rgb(132, 153, 189);
+  flex-shrink: 0;
+}
+
+.demo-result.complete {
+  color: rgb(167, 205, 184);
+}
+
+.demo-result.complete .result-dot {
+  background: rgb(167, 205, 184);
+  box-shadow: rgba(167, 205, 184, 0.353) 0px 0px 9px;
+}
+
+.result-target {
+  margin-left: auto;
+  font: 10px "Branch Sans";
+  white-space: nowrap;
+  color: rgb(124, 143, 174);
+}
+
+.illustration-caption {
+  font-size: 11px;
+  color: rgb(104, 119, 142);
+  text-align: center;
+  margin: 16px 0px 0px;
+}
+
+.a .supportline {
+  padding-top: 24px;
+}
+
+.mr-advantage {
+  display: grid;
+  grid-template-columns: 1fr 1.55fr;
+  gap: 30px 60px;
+  align-items: center;
+}
+
+.advantage-intro h2 {
+  font-size: 35px;
+}
+
+.advantage-intro > p {
+  font-size: 14px;
+  max-width: 280px;
+  line-height: 1.9;
+}
+
+.advantage-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  border: 1px solid rgba(181, 201, 237, 0.125);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.old-flow,
+ .connected-flow {
+  padding: 25px;
+}
+
+.old-flow {
+  background: rgba(255, 255, 255, 0.008);
+  border-right: 1px solid rgba(255, 255, 255, 0.047);
+}
+
+.advantage-grid h3 {
+  font-size: 14px;
+  color: rgb(165, 178, 200);
+  margin-bottom: 22px;
+}
+
+.old-flow-steps > div {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-size: 12px;
+  color: rgb(124, 137, 159);
+  margin: 15px 0px;
+}
+
+.old-flow-dot {
+  width: 4px;
+  height: 4px;
+  background: rgb(107, 124, 151);
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.connected-flow {
+  background: radial-gradient(at right top, rgba(96, 126, 177, 0.11), transparent), rgba(255, 255, 255, 0.01);
+  position: relative;
+}
+
+.connected-flow h3 {
+  color: rgb(212, 225, 245);
+}
+
+.connected-flow p {
+  font-size: 13px;
+  color: rgb(160, 174, 198);
+  line-height: 1.9;
+}
+
+.flow-pills {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-top: 28px;
+  color: rgb(152, 173, 209);
+}
+
+.flow-pills code {
+  font: 12px "Branch Sans";
+  padding: 8px;
+  border: 1px solid rgba(179, 200, 235, 0.125);
+  border-radius: 4px;
+  color: rgb(192, 208, 234);
+}
+
+.advantage-note {
+  grid-column: 1 / -1;
+  margin: 0px;
+  padding-top: 10px;
+  font-size: 12px;
+  color: rgb(119, 133, 157);
+}
+
+.a .actual-proof .sectionhead {
+  align-items: center;
+}
+
+.a .actual-proof h2 {
+  font-size: 38px;
+}
+
+.a .actual-proof .product {
+  max-width: 1080px;
+  margin: 40px auto 0px;
+  padding: 5px;
+  border-color: rgba(219, 231, 255, 0.208);
+  background: rgba(195, 212, 245, 0.13);
+  border-radius: 12px;
+  box-shadow: rgba(0, 0, 0, 0.267) 0px 35px 100px;
+}
+
+.a .actual-proof .product img {
+  height: auto;
+  border-radius: 7px;
+}
+
+.illustration-mark,
+ .mr-titlebar > .mono,
+ .sidebar-label,
+ .sidebar-project,
+ .sidebar-bottom,
+ .branch-heading > span,
+ .branch-table-head,
+ .branch-detail > span,
+ .branch-ready,
+ .branch-selection,
+ .mr-compose > label,
+ .title-help,
+ .bundle-hint,
+ .pipeline-step,
+ .demo-result,
+ .result-target,
+ .illustration-caption {
+  font-size: 12px;
+}
+
+.branch-guidance {
+  font-size: 14px;
+}
+
+.mr-compose > select,
+ .mr-compose > input,
+ .submit-demo {
+  min-height: 44px;
+}
+
+.old-flow-steps > div {
+  font-size: 14px;
+}
+
+@media (max-width: 1100px) {
+.a h1 span {
+  display: block;
+}
+
+.a h1 span:last-child {
+  margin-left: 0px;
+}
+
+.mr-layout {
+  grid-template-columns: 125px 1fr 290px;
+}
+
+.mr-sidebar {
+  padding: 22px 8px;
+}
+
+.sidebar-project {
+  font-size: 10px;
+}
+
+.mr-branches {
+  padding: 22px 15px 15px;
+}
+
+.mr-compose {
+  padding: 22px 18px;
+}
+
+.branch-ready {
+  display: none;
+}
+
+.branch-heading > span {
+  display: none;
+}
+
+.mr-advantage {
+  gap: 30px;
+  grid-template-columns: 1fr;
+}
+
+.advantage-intro > p {
+  max-width: none;
+}
+}
+
+@media (max-width: 800px) {
+.mr-layout {
+  grid-template-columns: 1fr 280px;
+}
+
+.mr-sidebar {
+  display: none;
+}
+
+.mr-pipeline {
+  padding: 15px;
+  gap: 10px;
+}
+
+.pipeline-step {
+  font-size: 10px;
+  gap: 5px;
+}
+
+.pipeline-step::after {
+  display: none;
+}
+}
+
+@media (max-width: 600px) {
+.a .hero {
+  padding-top: 36px;
+}
+
+.a h1 {
+  font-size: 35px;
+  letter-spacing: -1.5px;
+}
+
+.a .hero .intro {
+  font-size: 16px;
+  line-height: 1.85;
+}
+
+.a .cinema-stage {
+  padding: 0px;
+  margin-top: 30px;
+}
+
+.a .stage-halo {
+  left: 0px;
+  right: 0px;
+}
+
+.illustration-overline {
+  font-size: 12px;
+}
+
+.illustration-mark {
+  display: none;
+}
+
+.mr-layout {
+  display: block;
+}
+
+.mr-titlebar {
+  padding: 12px;
+}
+
+.mr-titlebar > .mono {
+  display: none;
+}
+
+.mr-branches {
+  padding: 20px 15px 16px;
+}
+
+.branch-heading h3 {
+  font-size: 18px;
+}
+
+.branch-guidance {
+  font-size: 14px;
+}
+
+.branch-table-head {
+  font-size: 12px;
+}
+
+.demo-branch {
+  min-height: 76px;
+  gap: 8px;
+  padding: 12px 9px;
+}
+
+.demo-branch input {
+  width: 17px;
+  height: 17px;
+}
+
+.branch-detail code {
+  font-size: 12px;
+}
+
+.branch-detail > span {
+  font-size: 12px;
+}
+
+.branch-selection {
+  font-size: 12px;
+}
+
+.mr-compose {
+  border-left: 0px;
+  border-top: 1px solid rgba(255, 255, 255, 0.063);
+  padding: 22px 18px;
+}
+
+.compose-heading h3 {
+  font-size: 17px;
+}
+
+.mr-compose > label {
+  font-size: 14px;
+}
+
+.mr-compose > select,
+ .mr-compose > input {
+  font-size: 14px;
+  min-height: 44px;
+}
+
+.title-help,
+ .bundle-hint {
+  font-size: 12px;
+}
+
+.submit-demo {
+  min-height: 46px;
+  font-size: 15px;
+}
+
+.mr-pipeline {
+  grid-template-columns: 1fr 1fr;
+  gap: 16px 10px;
+  padding: 18px;
+}
+
+.pipeline-step {
+  font-size: 12px;
+  gap: 8px;
+}
+
+.demo-result {
+  padding: 14px 18px;
+  font-size: 12px;
+  flex-wrap: wrap;
+}
+
+.result-message {
+  flex: 1 1 0%;
+}
+
+.result-target {
+  margin-left: 13px;
+  font-size: 12px;
+}
+
+.illustration-caption {
+  font-size: 12px;
+}
+
+.advantage-intro h2 {
+  font-size: 30px;
+}
+
+.advantage-intro > p {
+  font-size: 16px;
+}
+
+.advantage-grid {
+  grid-template-columns: 1fr;
+}
+
+.old-flow {
+  border-right: 0px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.047);
+}
+
+.advantage-grid h3 {
+  font-size: 16px;
+}
+
+.old-flow-steps > div {
+  font-size: 14px;
+}
+
+.connected-flow p {
+  font-size: 16px;
+}
+
+.advantage-note {
+  font-size: 14px;
+}
+
+.a .actual-proof h2 {
+  font-size: 30px;
+}
+}
+
+@media (prefers-reduced-motion: reduce) {
+.demo-branch {
+  transition: none;
+}
+}

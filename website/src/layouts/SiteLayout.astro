@@ -1,0 +1,59 @@
+---
+import { languageNames, languagePath, locales, type Copy, type Locale } from "../i18n";
+import Header from "../components/Header.astro";
+import "../styles/base.css";
+import "../styles/layout.css";
+import "../styles/demo.css";
+import "../styles/site.css";
+import "../styles/select.css";
+import "../styles/preview.css";
+import "../styles/local-fonts.css";
+interface Props { copy: Copy; locale: Locale; }
+const { copy: c, locale } = Astro.props;
+const title = `BranchNote — ${c.h1} ${c.h2}`;
+const canonical = Astro.site ? new URL(languagePath(locale), Astro.site) : undefined;
+---
+
+<!doctype html>
+<html lang={locale}>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#090b10" />
+    <meta name="description" content={c.intro} />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="BranchNote" />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={c.intro} />
+    <meta property="og:locale" content={locale.replace("-", "_")} />
+    {canonical && <meta property="og:url" content={canonical.href} />}
+    {canonical && <link rel="canonical" href={canonical.href} />}
+    {locales.map(value => (
+      <link rel="alternate" hreflang={value} href={Astro.site ? new URL(languagePath(value), Astro.site).href : languagePath(value)} />
+    ))}
+    <link rel="icon" href="/logo.svg" type="image/svg+xml" />
+    <title>{title}</title>
+  </head>
+  <body class="a">
+    <a class="skip-link" href="#main-content">{c.inspect}</a>
+    <div class="wrap">
+      <Header copy={c} locale={locale} />
+      <main id="main-content">
+        <slot />
+      </main>
+      <footer>
+        <a class="brand" href={languagePath(locale)}>
+          <img src="/logo.svg" alt="" width="28" height="28" loading="lazy" />
+          <span>BranchNote</span>
+        </a>
+        <span>{c.foot}</span>
+        <a href="https://github.com/FluentHaze/BranchNote" target="_blank" rel="noopener noreferrer">GitHub</a>
+        <noscript>
+          {locales.map(value => (
+            <a href={languagePath(value)} lang={value}>{languageNames[value]}</a>
+          ))}
+        </noscript>
+      </footer>
+    </div>
+  </body>
+</html>

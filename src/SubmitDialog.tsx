@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { ExternalLink, GitPullRequest, RefreshCw } from "lucide-react";
+import { Copy, ExternalLink, GitPullRequest, RefreshCw } from "lucide-react";
 import Modal from "./Modal";
 import Select from "./Select";
 import ConflictResolver from "./ConflictResolver";
@@ -17,12 +17,13 @@ interface Submission {
   checkedSource?: {ref: string; head: string};
   title?: string;
 }
-export default function SubmitDialog({ project, branchIds, initialStage, store, commit, close, openSettings }: {
+export default function SubmitDialog({ project, branchIds, initialStage, store, commit, copy, close, openSettings }: {
   project: Project;
   branchIds: string[];
   initialStage?: Stage;
   store: Store;
   commit(next: Store, text?: string): Promise<boolean>;
+  copy(text: string): Promise<void>;
   close(): void;
   openSettings?(): void;
 }) {
@@ -306,6 +307,9 @@ export default function SubmitDialog({ project, branchIds, initialStage, store, 
             <p className="picker-note">共 {submission.names.length} 个功能分支。目标分支保持原状，只有平台合并 MR 后才会更新。</p>
             <div className="modal-actions">
               <button className="secondary" disabled={busy} onClick={close}>关闭</button>
+              {mr && <button className="secondary" disabled={busy} onClick={() => void copy(mr.url)}>
+                <Copy size={15} />复制 MR 地址
+              </button>}
               {mr && <button className="primary" disabled={busy} onClick={() => void window.branchNote?.openUrl(mr.url)}>
                 <ExternalLink size={15} />打开 MR {mr.number && "#" + mr.number}
               </button>}

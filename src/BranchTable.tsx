@@ -12,6 +12,7 @@ import {
 import { targetState, type Store, type Branch, type Stage, type MRTarget } from "./model";
 import type { CSSProperties } from "react";
 import type { Editor } from "./EditorForm";
+import "./mr-actions.css";
 
 interface Props {
   store: Store;
@@ -129,9 +130,20 @@ export default function BranchTable({
                         {state.mergedAt ? "已合并" : state.mr?.state === "closed" ? "MR 已关闭" : state.mr ? "MR 待合并" : "待提交"}
                       </button>
                       {state.mr && (
-                        <button className="mr-link" onClick={() => void window.branchNote?.openUrl(state.mr!.url)}>
-                          打开 MR {state.mr.number && "#" + state.mr.number}
-                        </button>
+                        <div className="mr-links">
+                          <button className="mr-link" onClick={() => void window.branchNote?.openUrl(state.mr!.url)}>
+                            打开 MR {state.mr.number && "#" + state.mr.number}
+                          </button>
+                          <button
+                            type="button"
+                            className="mr-copy"
+                            title="复制 MR 地址"
+                            aria-label={`复制${target.name} MR 地址`}
+                            onClick={() => void copy(state.mr!.url)}
+                          >
+                            <Copy size={13} />
+                          </button>
+                        </div>
                       )}
                       {state.mergedAt && destination && (
                         <span className="status-target" title={destination}>{destination}</span>
