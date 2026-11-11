@@ -1,10 +1,9 @@
 ---
 import { ArrowUpRight } from "lucide-react";
-import { withBase, type Copy, type Locale } from "../i18n";
-import WorkflowExplorer from "./WorkflowExplorer";
+import { withBase, type Copy } from "../i18n";
 import DownloadButtons from "./DownloadButtons.astro";
-interface Props { copy: Copy; locale: Locale; }
-const { copy: c, locale } = Astro.props;
+interface Props { copy: Copy; }
+const { copy: c } = Astro.props;
 const questions = [
   { question: c.q1, answer: c.a1 },
   { question: c.q2, answer: c.a2 },
@@ -14,7 +13,7 @@ const questions = [
 
 <section id="workflow">
   <h2>{c.work}</h2>
-  <WorkflowExplorer locale={locale} client:visible />
+
   <div class="git-flow-entry">
     <h3>{c.gitFlow.flowTitle}</h3>
     <p>{c.gitFlow.flowIntro}</p>

@@ -4,6 +4,7 @@ import type { Copy } from "../i18n";
 interface Props { copy: Copy; }
 const { copy: c } = Astro.props;
 const release = "https://github.com/FluentHaze/BranchNote/releases/download/v0.2.5";
+const helpGroup = crypto.randomUUID();
 const packages = [
   { platform: "macos", arch: "arm64", label: c.downloads.macArm, file: "BranchNote-0.2.5-mac-arm64.dmg", Icon: Cpu },
   { platform: "macos", arch: "x64", label: c.downloads.macIntel, file: "BranchNote-0.2.5-mac-x64.dmg", Icon: LaptopMinimal },
@@ -30,7 +31,7 @@ const packages = [
   <a class="release-link" href="https://github.com/FluentHaze/BranchNote/releases/tag/v0.2.5" target="_blank" rel="noopener noreferrer">{c.downloads.releaseNotes}</a>
 </p>
 <div class="download-support">
-  <details class="download-help">
+  <details class="download-help" name={helpGroup}>
     <summary>
       <Download size={15} aria-hidden="true" />
       {c.downloads.moreFormats}
@@ -51,7 +52,7 @@ const packages = [
       </ul>
     </div>
   </details>
-  <details class="download-help">
+  <details class="download-help" name={helpGroup}>
     <summary>
       <CircleHelp size={15} aria-hidden="true" />
       {c.downloads.choose}
@@ -65,7 +66,7 @@ const packages = [
       </ul>
     </div>
   </details>
-  <details class="download-help">
+  <details class="download-help" name={helpGroup}>
     <summary>
       <ShieldCheck size={15} aria-hidden="true" />
       {c.downloads.installHelp}

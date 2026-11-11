@@ -12,9 +12,9 @@ const copy = translations[locale];
 ---
 
 <SiteLayout copy={copy} locale={locale}>
-  <Hero copy={copy} />
+  <Hero copy={copy} locale={locale} />
   <Features copy={copy} />
   <ProductProof copy={copy} />
   <StatusPreview copy={copy} client:visible />
-  <MoreSections copy={copy} locale={locale} />
+  <MoreSections copy={copy} />
 </SiteLayout>

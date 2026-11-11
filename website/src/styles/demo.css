@@ -876,3 +876,38 @@
   transition: none;
 }
 }
+
+/* All workflow states stay inside the desktop demo window. */
+.demo-scenarios { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 12px 18px; border-bottom: 1px solid #ffffff0a; }
+.demo-scenarios button, .demo-resolutions button, .demo-secondary { min-height: 44px; padding: 8px 12px; border: 0; border-radius: 8px; background: transparent; color: #a7bad5; font: inherit; font-size: 12px; cursor: pointer; }
+.demo-scenarios button:hover, .demo-resolutions button:hover, .demo-secondary:hover { background: #253247; }
+.demo-scenarios button[aria-pressed="true"], .demo-resolutions button[aria-pressed="true"] { color: #e0ebff; background: #293850; }
+.demo-scenarios .demo-reset { margin-left: auto; }
+.demo-flow-panel { padding: 22px; border-top: 1px solid #ffffff0a; text-align: left; }
+.demo-flow-branches { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+.demo-flow-branches span { display: block; margin-bottom: 6px; color: #8494ae; font-size: 11px; }
+.demo-flow-branches code { color: #c5d9f7; font-size: 12px; overflow-wrap: anywhere; }
+.demo-flow-panel h4 { margin: 20px 0 10px; font-size: 15px; font-weight: 500; }
+.demo-flow-panel p { margin: 10px 0; color: #a8b6cb; font-size: 12px; line-height: 1.8; overflow-wrap: anywhere; }
+.demo-preflight h4 { color: #efcb94; }
+.demo-flow-panel .submit-demo { width: auto; min-height: 44px; padding: 10px 16px; font-size: 12px; }
+.demo-code-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.demo-code-grid > div { min-width: 0; }
+.demo-code-grid h5 { margin: 0 0 8px; font-size: 12px; color: #afc1da; }
+.demo-code-grid pre { margin: 0; padding: 12px; border-radius: 8px; color: #c5d9f7; background: #0d1521; font-size: 12px; overflow-x: auto; }
+.demo-resolutions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.demo-result-editor { display: grid; gap: 8px; margin-top: 14px; font-size: 12px; color: #afc1da; }
+.demo-result-editor textarea { box-sizing: border-box; width: 100%; min-width: 0; padding: 12px; border: 1px solid #405573; border-radius: 8px; color: #dceaff; background: #0d1521; resize: vertical; font: 12px/1.7 monospace; }
+.demo-mr-status h4 { color: #b7dec9; }
+.mr-window :is(button, input, textarea):focus-visible { outline: 2px solid #a9c4f1; outline-offset: 3px; }
+@media (max-width: 600px) {
+  .demo-flow-panel { padding: 16px; }
+  .demo-code-grid, .demo-flow-branches { grid-template-columns: 1fr; }
+  .demo-scenarios { padding: 10px; }
+}
+
+.demo-merge-plan { padding: 18px 22px; border-top: 1px solid #ffffff0a; text-align: left; }
+.demo-merge-plan h4 { margin: 0 0 8px; font-size: 12px; color: #afc1da; font-weight: 500; }
+.demo-merge-plan ol { display: flex; flex-wrap: wrap; gap: 8px 28px; margin: 0 0 16px; padding-left: 20px; color: #93b0db; font-size: 12px; }
+.demo-merge-plan code { overflow-wrap: anywhere; }
+.demo-merge-plan p { margin: 0; max-width: none; color: #a8b6cb; font-size: 12px; line-height: 1.8; }

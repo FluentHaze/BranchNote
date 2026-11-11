@@ -1,9 +1,9 @@
 ---
-import type { Copy } from "../i18n";
+import type { Copy, Locale } from "../i18n";
 import DownloadButtons from "./DownloadButtons.astro";
 import MrDemo from "./MrDemo";
-interface Props { copy: Copy; }
-const { copy: c } = Astro.props;
+interface Props { copy: Copy; locale: Locale; }
+const { copy: c, locale } = Astro.props;
 ---
 
 <header class="hero">
@@ -20,7 +20,7 @@ const { copy: c } = Astro.props;
   </div>
   <div class="cinema-stage">
     <div class="stage-halo" aria-hidden="true"></div>
-    <MrDemo copy={c} client:load />
+    <MrDemo copy={c} locale={locale} client:load />
   </div>
 </header>
 <div class="supportline" aria-label="GitLab / GitHub">
