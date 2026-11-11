@@ -4,50 +4,77 @@ import type { Copy } from "../i18n";
 interface Props { copy: Copy; }
 const { copy: c } = Astro.props;
 const release = "https://github.com/FluentHaze/BranchNote/releases/download/v0.2.5";
+const packages = [
+  { platform: "macos", arch: "arm64", label: c.downloads.macArm, file: "BranchNote-0.2.5-mac-arm64.dmg", Icon: Cpu },
+  { platform: "macos", arch: "x64", label: c.downloads.macIntel, file: "BranchNote-0.2.5-mac-x64.dmg", Icon: LaptopMinimal },
+  { platform: "windows", arch: "x64", label: c.downloads.win, file: "BranchNote-Setup-0.2.5-x64.exe", Icon: Monitor },
+];
 ---
 
 <div class="actions download-actions">
-  <a class="button download-trigger" data-platform="macos" data-arch="arm64" href={`${release}/BranchNote-0.2.5-mac-arm64.dmg`}>
-    <span class="download-symbol">
-      <Cpu size={22} strokeWidth={1.5} aria-hidden="true" />
-    </span>
-    <span class="download-copy">
-      <span>{c.downloads.macArm}</span>
-      <span class="current-device" hidden>{c.downloads.current}</span>
-    </span>
-    <Download className="download-arrow" size={17} strokeWidth={1.6} aria-hidden="true" />
-  </a>
-  <a class="button download-trigger" data-platform="macos" data-arch="x64" href={`${release}/BranchNote-0.2.5-mac-x64.dmg`}>
-    <span class="download-symbol">
-      <LaptopMinimal size={22} strokeWidth={1.5} aria-hidden="true" />
-    </span>
-    <span class="download-copy"><span>{c.downloads.macIntel}</span><span class="current-device" hidden>{c.downloads.current}</span></span>
-    <Download className="download-arrow" size={17} strokeWidth={1.6} aria-hidden="true" />
-  </a>
-  <button class="button download-trigger" data-platform="windows" type="button" disabled title={c.downloads.notice}>
-    <span class="download-symbol">
-      <Monitor size={22} strokeWidth={1.5} aria-hidden="true" />
-    </span>
-    <span class="download-copy">
-      <span>{c.downloads.win}</span>
-      <span class="current-device" hidden>{c.downloads.current}</span>
-    </span>
-  </button>
+  {packages.map(({ platform, arch, label, file, Icon }) => (
+    <a class="button download-trigger" data-platform={platform} data-arch={arch} href={`${release}/${file}`}>
+      <span class="download-symbol">
+        <Icon size={22} strokeWidth={1.5} aria-hidden="true" />
+      </span>
+      <span class="download-copy">
+        <span>{label}</span>
+        <span class="current-device" hidden>{c.downloads.current}</span>
+      </span>
+      <Download className="download-arrow" size={17} strokeWidth={1.6} aria-hidden="true" />
+    </a>
+  ))}
 </div>
-<p class="smallnote">v0.2.5 · {c.downloads.hint} · <a class="release-link" href="https://github.com/FluentHaze/BranchNote/releases/tag/v0.2.5" target="_blank" rel="noopener noreferrer">{c.downloads.releaseNotes}</a></p>
+<p class="smallnote">
+  v0.2.5 · {c.downloads.hint} ·
+  <a class="release-link" href="https://github.com/FluentHaze/BranchNote/releases/tag/v0.2.5" target="_blank" rel="noopener noreferrer">{c.downloads.releaseNotes}</a>
+</p>
 <div class="download-support">
   <details class="download-help">
-    <summary><CircleHelp size={15} aria-hidden="true" />{c.downloads.choose}<ChevronDown className="help-chevron" size={13} aria-hidden="true" /></summary>
-    <div class="download-help-body">
-      <p>{c.downloads.chipHelp}</p>
-      <ul><li>{c.downloads.armHelp}</li><li>{c.downloads.intelHelp}</li></ul>
+    <summary>
+      <Download size={15} aria-hidden="true" />
+      {c.downloads.moreFormats}
+      <ChevronDown className="help-chevron" size={13} aria-hidden="true" />
+    </summary>
+    <div class="download-help-body download-formats">
+      <p>{c.downloads.formatsHelp}</p>
+      <ul>
+        <li>
+          <a href={`${release}/BranchNote-0.2.5-win-x64.exe`}>{c.downloads.portable}</a>
+        </li>
+        <li>
+          <a href={`${release}/BranchNote-0.2.5-mac-arm64.zip`}>macOS · Apple Silicon · ZIP</a>
+        </li>
+        <li>
+          <a href={`${release}/BranchNote-0.2.5-mac-x64.zip`}>macOS · Intel · ZIP</a>
+        </li>
+      </ul>
     </div>
   </details>
   <details class="download-help">
-    <summary><ShieldCheck size={15} aria-hidden="true" />{c.downloads.installHelp}<ChevronDown className="help-chevron" size={13} aria-hidden="true" /></summary>
-    <div class="download-help-body"><p>{c.downloads.macNotice}</p></div>
+    <summary>
+      <CircleHelp size={15} aria-hidden="true" />
+      {c.downloads.choose}
+      <ChevronDown className="help-chevron" size={13} aria-hidden="true" />
+    </summary>
+    <div class="download-help-body">
+      <p>{c.downloads.chipHelp}</p>
+      <ul>
+        <li>{c.downloads.armHelp}</li>
+        <li>{c.downloads.intelHelp}</li>
+      </ul>
+    </div>
   </details>
-  <p class="smallnote platform-availability">{c.downloads.notice}</p>
+  <details class="download-help">
+    <summary>
+      <ShieldCheck size={15} aria-hidden="true" />
+      {c.downloads.installHelp}
+      <ChevronDown className="help-chevron" size={13} aria-hidden="true" />
+    </summary>
+    <div class="download-help-body">
+      <p>{c.downloads.macNotice}</p>
+    </div>
+  </details>
 </div>
 
 <script>
@@ -60,28 +87,31 @@ const release = "https://github.com/FluentHaze/BranchNote/releases/download/v0.2
 
   async function markCurrentDownload() {
     const platform = browserNavigator.userAgentData?.platform ?? navigator.userAgent;
+    const windows = /Windows/i.test(platform);
     const mobileApple = /iPhone|iPad|iPod/.test(navigator.userAgent)
       || (/Mac/i.test(platform) && navigator.maxTouchPoints > 1);
-    if (!/Mac/i.test(platform) || mobileApple) return;
+    if ((!/Mac/i.test(platform) || mobileApple) && !windows) return;
 
-    // The frozen User-Agent can say Intel even on Apple Silicon; use Client Hints only.
-    let architecture: string | undefined;
-    try {
-      architecture = (await browserNavigator.userAgentData?.getHighEntropyValues?.(["architecture"]))?.architecture;
-    } catch {
-      // Some browser policies block architecture hints. Leave both choices available.
-      return;
+    // Frozen Mac User-Agents can say Intel on Apple Silicon; use Client Hints only.
+    let arch: string | undefined = windows ? "x64" : undefined;
+    if (!windows) {
+      let architecture: string | undefined;
+      try {
+        architecture = (await browserNavigator.userAgentData?.getHighEntropyValues?.(["architecture"]))?.architecture;
+      } catch {
+        // Browser policies may block architecture hints. Keep both choices available.
+        return;
+      }
+      arch = architecture === "arm" ? "arm64" : architecture === "x86" ? "x64" : undefined;
     }
-    const arch = architecture === "arm" ? "arm64" : architecture === "x86" ? "x64" : null;
     if (!arch) return;
 
     document.querySelectorAll<HTMLElement>(".download-actions").forEach(group => {
-      const currentButton = group.querySelector<HTMLElement>(`a[data-arch="${arch}"]`);
+      const currentButton = group.querySelector<HTMLElement>(`a[data-platform="${windows ? "windows" : "macos"}"][data-arch="${arch}"]`);
       if (!currentButton) return;
       currentButton.classList.add("primary", "is-current");
       const badge = currentButton.querySelector<HTMLElement>(".current-device");
       if (badge) badge.hidden = false;
-      // Reordering must not move a keyboard user's currently focused control.
       if (!group.contains(document.activeElement)) group.prepend(currentButton);
     });
   }

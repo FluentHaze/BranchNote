@@ -94,10 +94,9 @@
   "inspect": "Select. Submit. Track.",
   "flowlabel": "From feature branches to a merge request",
   "downloads": {
-    "win": "Download for Windows",
+    "win": "Windows · x64 installer",
     "mac": "Download for macOS",
     "hint": "Desktop app · Local records · No sign-up",
-    "notice": "Windows installer is not available yet",
     "current": "Your device",
     "macIntel": "macOS · Intel",
     "macArm": "macOS · Apple Silicon",
@@ -107,6 +106,9 @@
     "chipHelp": "Open Apple menu → About This Mac and check Chip or Processor.",
     "armHelp": "Apple M-series chip: choose Apple Silicon.",
     "intelHelp": "Intel processor: choose Intel.",
+    "moreFormats": "Portable and ZIP downloads",
+    "portable": "Windows · x64 portable (no installation)",
+    "formatsHelp": "Use the installer for everyday Windows use, or portable to run without installing. DMG is recommended for macOS; alternatively, extract the ZIP for your chip and move the app to Applications.",
     "installHelp": "macOS installation · Not notarized by Apple"
   },
   "h1": "Less MR busywork.",

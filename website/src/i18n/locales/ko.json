@@ -94,10 +94,9 @@
   "inspect": "선택, 제출, 추적",
   "flowlabel": "기능 브랜치에서 머지 요청까지",
   "downloads": {
-    "win": "Windows용 다운로드",
+    "win": "Windows · x64 설치 파일",
     "mac": "macOS용 다운로드",
     "hint": "데스크톱 앱 · 로컬 저장 · 가입 불필요",
-    "notice": "Windows 설치 파일은 아직 제공되지 않습니다",
     "current": "현재 기기",
     "macIntel": "macOS · Intel",
     "macArm": "macOS · Apple Silicon",
@@ -107,6 +106,9 @@
     "chipHelp": "Apple 메뉴 → 이 Mac에 관하여에서 칩 또는 프로세서를 확인하세요.",
     "armHelp": "Apple M 시리즈 칩: Apple Silicon을 선택하세요.",
     "intelHelp": "Intel 프로세서: Intel을 선택하세요.",
+    "moreFormats": "포터블 및 ZIP 다운로드",
+    "portable": "Windows · x64 포터블 (설치 불필요)",
+    "formatsHelp": "Windows는 일반적으로 설치 파일을 사용하고, 설치 없이 실행하려면 포터블을 선택하세요. macOS는 DMG를 권장합니다. ZIP은 칩에 맞는 파일을 압축 해제한 후 앱을 Applications로 옮기세요.",
     "installHelp": "macOS 설치 안내 · Apple 공증 미완료"
   },
   "h1": "번거로운 MR 제출을,",

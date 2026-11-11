@@ -94,10 +94,9 @@
   "inspect": "選擇、提交、追蹤",
   "flowlabel": "從功能分支到合併請求",
   "downloads": {
-    "win": "下載 Windows 版",
+    "win": "Windows · x64 安裝版",
     "mac": "下載 macOS 版",
     "hint": "桌面應用程式 · 本機儲存 · 無需註冊",
-    "notice": "Windows 安裝程式暫未提供",
     "current": "目前裝置",
     "macIntel": "macOS · Intel",
     "macArm": "macOS · Apple Silicon",
@@ -107,6 +106,9 @@
     "chipHelp": "開啟 Apple 選單 → 關於這台 Mac，查看「晶片」或「處理器」。",
     "armHelp": "顯示 Apple M 系列晶片：選擇 Apple Silicon。",
     "intelHelp": "顯示 Intel 處理器：選擇 Intel。",
+    "moreFormats": "可攜版與 ZIP 下載",
+    "portable": "Windows · x64 可攜版（免安裝）",
+    "formatsHelp": "Windows 日常使用請選安裝版；可攜版無需安裝。macOS 建議使用 DMG，也可下載對應晶片的 ZIP，解壓縮後將應用程式移至 Applications。",
     "installHelp": "macOS 安裝說明 · 尚未經 Apple 公證"
   },
   "h1": "提交 MR，",

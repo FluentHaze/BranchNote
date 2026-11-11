@@ -94,10 +94,9 @@
   "inspect": "選択・提出・追跡",
   "flowlabel": "機能ブランチから MR へ",
   "downloads": {
-    "win": "Windows 版をダウンロード",
+    "win": "Windows · x64 インストーラー",
     "mac": "macOS 版をダウンロード",
     "hint": "デスクトップアプリ · ローカル保存 · 登録不要",
-    "notice": "Windows インストーラーは準備中です",
     "current": "このデバイス向け",
     "macIntel": "macOS · Intel",
     "macArm": "macOS · Apple Silicon",
@@ -107,6 +106,9 @@
     "chipHelp": "Apple メニュー → この Mac についてでチップまたはプロセッサを確認します。",
     "armHelp": "Apple M シリーズのチップ：Apple Silicon を選択。",
     "intelHelp": "Intel プロセッサ：Intel を選択。",
+    "moreFormats": "ポータブル版・ZIP をダウンロード",
+    "portable": "Windows · x64 ポータブル（インストール不要）",
+    "formatsHelp": "Windows は通常インストーラーを選びます。ポータブル版はインストール不要です。macOS は DMG を推奨します。ZIP を使う場合はチップに合うものを解凍し、アプリを Applications に移動してください。",
     "installHelp": "macOS のインストール · Apple 公証未取得"
   },
   "h1": "MR 提出の手間を、",

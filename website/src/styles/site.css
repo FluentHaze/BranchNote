@@ -376,7 +376,11 @@ button {
 }
 .download-help-body p { margin: 0; max-width: none; }
 .download-help-body ul { margin: 8px 0 0; padding-left: 20px; }
-.platform-availability { margin-top: 6px; opacity: .8; }
+.download-formats ul { padding: 0; list-style: none; }
+.download-formats a { display: flex; align-items: center; min-height: 44px; padding: 8px 10px; border-radius: 8px; color: #d6e3f8; text-decoration: underline; text-underline-offset: 4px; overflow-wrap: anywhere; }
+.download-formats a:hover { background: #ffffff08; }
+.download-help > summary:focus-visible,
+.download-formats a:focus-visible { outline: 2px solid #9bbef5; outline-offset: 3px; }
 @media (max-width: 600px) {
   .a .download-trigger { min-width: 0; }
   .download-help > summary { min-height: 44px; }
