@@ -1,5 +1,6 @@
 ---
 import { Image } from "astro:assets";
+import { GitBranch, GitMerge } from "lucide-react";
 import product from "../assets/product.png";
 import type { Copy } from "../i18n";
 interface Props { copy: Copy; }
@@ -11,8 +12,57 @@ const { copy: c } = Astro.props;
     <h2>{c.proofhead}</h2>
     <p>{c.prooftext}</p>
   </div>
-  <div class="product">
-    <Image src={product} alt={c.cap} widths={[720, 1080, 1440]} sizes="(max-width: 600px) 90vw, 1080px" format="webp" loading="lazy" />
+  <div class="proof-card">
+    <div class="proof-context">
+      <span class="proof-label">BranchNote · Desktop</span>
+      <h3>{c.workspace}</h3>
+      <div class="proof-detail">
+        <GitBranch size={18} strokeWidth={1.5} aria-hidden="true" />
+        <div>
+          <h4>{c.overview}</h4>
+          <p>{c.tabtext[0]}</p>
+        </div>
+      </div>
+      <div class="proof-detail">
+        <GitMerge size={18} strokeWidth={1.5} aria-hidden="true" />
+        <div>
+          <h4>{c.targets}</h4>
+          <p>{c.tabtext[1]}</p>
+        </div>
+      </div>
+    </div>
+    <figure class="proof-screenshot">
+      <Image src={product} alt={c.cap} widths={[720, 1080, 1440]} sizes="(max-width: 600px) 86vw, (max-width: 900px) 90vw, 700px" format="webp" loading="lazy" />
+      <figcaption>{c.cap}</figcaption>
+    </figure>
   </div>
-  <p class="caption">{c.cap}</p>
 </section>
+
+<style>
+  .proof-card {
+    display: grid;
+    grid-template-columns: minmax(220px, 280px) minmax(0, 1fr);
+    align-items: center;
+    gap: clamp(24px, 4vw, 48px);
+    max-width: 1080px;
+    margin: 36px auto 0;
+    padding: clamp(20px, 3vw, 36px);
+    border: 1px solid #ffffff0d;
+    border-radius: 18px;
+    background: #101621;
+  }
+  .proof-context { min-width: 0; }
+  .proof-label { color: #8294b0; font-size: 11px; letter-spacing: .06em; }
+  .proof-context h3 { margin: 12px 0 24px; font-size: 22px; font-weight: 450; }
+  .proof-detail { display: flex; align-items: flex-start; gap: 12px; margin-top: 20px; }
+  .proof-detail > svg { flex-shrink: 0; margin-top: 2px; color: #9db8dc; }
+  .proof-detail h4 { margin: 0 0 6px; color: #c6d5ea; font-size: 13px; font-weight: 450; }
+  .proof-detail p { margin: 0; color: #94a4bc; font-size: 12px; line-height: 1.8; }
+  .proof-screenshot { min-width: 0; margin: 0; padding: 12px; border: 1px solid #ffffff0a; border-radius: 12px; background: #0a1019; }
+  .proof-screenshot img { display: block; width: 100%; height: auto; border-radius: 7px; }
+  .proof-screenshot figcaption { margin-top: 12px; text-align: center; font-size: 11px; color: #8494ae; }
+  @media (max-width: 900px) {
+    .proof-card { grid-template-columns: 1fr; gap: 24px; }
+    .proof-context h3 { margin-bottom: 16px; }
+  }
+</style>
