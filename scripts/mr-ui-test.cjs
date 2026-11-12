@@ -136,6 +136,9 @@ if (process.type === "renderer") {
       await waitFor("!!document.querySelector('dialog[open]')");
       await new Promise(r=>setTimeout(r,250));
       fs.writeFileSync(path.join(root,"docs/e2e/mr-submit.png"),(await win.webContents.capturePage()).toPNG());
+      assert.match(await evaluate("document.querySelector('input[aria-label=无冲突合并分支]').value"), /^mr\/\d+$/);
+      assert.match(await evaluate("document.querySelector('input[aria-label=冲突处理分支]').value"), /^resolve\/\d+$/);
+      await setInput('input[aria-label="无冲突合并分支"]', "mr/custom-batch");
 
       await evaluate("document.querySelector('.submit-credentials summary').click()");
       await waitFor("!!document.querySelector('.submit-credentials input[aria-label=访问令牌]')");
@@ -168,11 +171,12 @@ if (process.type === "renderer") {
       state=await evaluate("window.branchNote.inspect()");
       assert.equal(await evaluate("Array.from(document.querySelectorAll('dialog button')).some(b=>b.textContent.includes('重新关联记录'))"),false);
       const prepare=state.calls.find(c=>c[0]==="prepare");
-      assert.match(prepare[2],/^mr\/test-/);
+      assert.equal(prepare[2],"mr/custom-batch");
       assert.equal(prepare[5].base,"origin/test");
       assert.equal(prepare[5].mrTarget,"origin/test");
       assert.equal(prepare[3].length,3);
       const mr=state.calls.find(c=>c[0]==="mr");
+      assert.equal(mr[2],"mr/custom-batch");
       assert.equal(mr[3],"test","platform target must not include remote prefix");
       assert.equal(mr[6],"origin");
       assert.equal(state.data.branches[0].testMergedAt,null);
@@ -201,6 +205,7 @@ if (process.type === "renderer") {
       await clickText("提交测试");
       await waitFor("!!document.querySelector('dialog[open]')");
       const before=await evaluate("window.branchNote.inspect()");
+      await setInput('input[aria-label="冲突处理分支"]', "resolve/custom-conflict");
       await clickText("检查冲突");
       await waitFor("document.body.textContent.includes('发现冲突，尚未修改当前仓库')");
       let checked=await evaluate("window.branchNote.inspect()");
@@ -217,7 +222,7 @@ if (process.type === "renderer") {
       await waitFor("document.body.textContent.includes('等待在平台审核、合并')");
       checked=await evaluate("window.branchNote.inspect()");
       assert.equal(checked.calls.filter(c=>c[0]==="execute").at(-1)[2],true);
-      assert.equal(checked.calls.filter(c=>c[0]==="mr").at(-1)[2],"resolve/test");
+      assert.equal(checked.calls.filter(c=>c[0]==="mr").at(-1)[2],"resolve/custom-conflict");
       await clickText("关闭");
       await evaluate("window.branchNote.forceConflict(false)");
       await win.setSize(1440,980);

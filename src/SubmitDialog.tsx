@@ -36,7 +36,8 @@ export default function SubmitDialog({ project, branchIds, initialStage, store, 
   const [title, setTitle] = useState("");
   const titleEdited = useRef(false);
   const [description, setDescription] = useState("");
-  const [resolveName, setResolveName] = useState("resolve");
+  const [mergeName, setMergeName] = useState(() => "mr/" + Date.now());
+  const [resolveName, setResolveName] = useState(() => "resolve/" + Date.now());
   const [busy, setBusy] = useState(false);
   const [step, setStep] = useState("");
   const [error, setError] = useState("");
@@ -176,7 +177,7 @@ export default function SubmitDialog({ project, branchIds, initialStage, store, 
       }
       sources.push(info.local && !(info.behind > 0 && !info.ahead) ? info.name : info.remoteRef!);
     }
-    const source = "mr/" + stage + "-" + Date.now();
+    const source = mergeName.trim() || "mr/" + Date.now();
     const plan: Submission = { source, target, remote, names: sources, stage };
     setPreflight(null);
     setBusy(true);
@@ -349,17 +350,26 @@ export default function SubmitDialog({ project, branchIds, initialStage, store, 
               <span>MR 标题</span>
               <input aria-label="MR 标题" value={title} disabled={busy} onChange={event => { titleEdited.current = true; setTitle(event.target.value); }} placeholder="填写 MR 标题" />
             </label>
+            {selection.length > 1 && (
+              <label className="host-field">
+                <span>无冲突合并分支</span>
+                <input aria-label="无冲突合并分支" value={mergeName} disabled={busy}
+                  onChange={event => { setMergeName(event.target.value); setPreflight(null); }} placeholder="mr/时间戳" />
+                <small>默认 mr/时间戳，可填写完整的新分支名；留空时自动生成。</small>
+              </label>
+            )}
+            <label className="host-field">
+              <span>冲突处理分支</span>
+              <input aria-label="冲突处理分支" value={resolveName} disabled={busy}
+                onChange={event => { setResolveName(event.target.value); setPreflight(null); }} placeholder="resolve/时间戳" />
+              <small>默认 resolve/时间戳，可填写完整的新分支名；留空时自动生成。</small>
+            </label>
             <details className="submit-options">
-              <summary>更多选项 · 描述与冲突处理</summary>
+              <summary>更多选项 · MR 描述</summary>
               <div className="submit-options-fields">
             <label className="host-field">
               <span className="form-label-inline">MR 描述 <span className="optional">选填</span></span>
               <textarea aria-label="MR 描述" value={description} rows={2} disabled={busy} onChange={event => setDescription(event.target.value)} placeholder="可留空" />
-            </label>
-            <label className="host-field">
-              <span>冲突处理分支</span>
-              <input aria-label="冲突处理分支" value={resolveName} disabled={busy} onChange={event => { setResolveName(event.target.value); setPreflight(null); }} placeholder="resolve" />
-              <small>默认 resolve 自动生成 resolve/时间戳；也可填写完整的新分支名。</small>
             </label>
               </div>
             </details>
