@@ -91,6 +91,29 @@ button, input, textarea, select {
 .nav-item.active .count {
   color: #5268ad;
 }
+.project-nav-item { gap: 10px; }
+.project-nav-item.active {
+  background: #e9edfb;
+  color: #3656ca;
+}
+.project-nav-item .nav-name { color: var(--ink); font-weight: 500; }
+.project-nav-item .count { color: var(--muted); }
+.project-nav-item.active .nav-name { color: #3656ca; font-weight: 500; }
+.project-nav-item.active .count { color: #5268ad; }
+.project-nav-item.active .project-provider-icon { color: #007aff; }
+.project-provider-icon {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: #007aff;
+}
+.project-provider-icon img { display: block; object-fit: contain; }
 .sidebar-bottom {
   margin-top: auto;
 }
@@ -1169,8 +1192,14 @@ tbody tr {
   cursor: pointer;
 }
 tbody tr:focus-visible {
-  outline: 2px solid #91a5ed;
-  outline-offset: -2px;
+  outline: none;
+}
+tbody tr:focus-visible .branch-code { text-decoration: underline; text-underline-offset: 4px; }
+.host-field input:focus,
+.host-field textarea:focus {
+  outline: none;
+  border-color: #879ce7;
+  box-shadow: none;
 }
 .branch-code {
   color: var(--muted);
@@ -1291,14 +1320,14 @@ tbody tr:focus-visible {
 }
 .many-targets thead tr, .many-targets tbody tr {
   display: grid;
-  grid-template-columns: 32px minmax(0, 1fr) 40px;
+  grid-template-columns: 32px minmax(180px, 1fr) minmax(300px, 1.1fr) 32px;
 }
-.many-targets .targets-summary-heading { display: none; }
-.many-targets tbody tr { padding: 14px 12px; }
+.many-targets .targets-summary-heading { display: block; }
+.many-targets tbody tr { padding: 10px 12px; align-items: center; }
 .table-scroll .many-targets .branch-cell {
   width: auto;
   min-width: 0;
-  padding: 4px 8px 10px;
+  padding: 4px 8px;
 }
 .table-scroll .many-targets .select-cell,
 .table-scroll .many-targets .action-cell {
@@ -1307,33 +1336,50 @@ tbody tr:focus-visible {
   padding: 4px 0;
 }
 .table-scroll .many-targets .action-cell {
-  grid-column: 3;
+  grid-column: 4;
   grid-row: 1;
   position: static;
 }
 .table-scroll .many-targets .targets-summary {
-  grid-column: 2;
-  grid-row: 2;
+  grid-column: 3;
+  grid-row: 1;
   width: auto;
   min-width: 0;
-  padding: 0 8px 4px;
+  padding: 0 8px;
 }
 .target-status-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-  gap: 8px;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 4px;
 }
 .table-scroll .many-targets .target-status-cell {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 6px;
+  display: grid;
+  grid-template-columns: minmax(40px, 64px) minmax(82px, 1fr) minmax(100px, 1fr);
+  align-items: center;
+  gap: 8px;
   width: auto;
   min-width: 0;
-  padding: 10px 12px;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-control);
-  background: #ffffff80;
+  padding: 3px 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+.many-targets .status-target { display: none; }
+.many-targets .status { min-height: 24px; padding: 0; justify-content: flex-start; }
+.many-targets .target-status-heading { padding: 2px 7px; justify-self: start; font-size: 11px; }
+.many-targets .mr-link { min-height: 24px; padding-block: 0; }
+.many-targets .branch-description,
+.many-targets .branch-change-note {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-block: 5px 0;
+}
+@media (max-width: 900px) {
+  .many-targets thead tr, .many-targets tbody tr { grid-template-columns: 28px minmax(0, 1fr) 32px; }
+  .many-targets .targets-summary-heading { display: none; }
+  .table-scroll .many-targets .action-cell { grid-column: 3; }
+  .table-scroll .many-targets .targets-summary { grid-column: 2; grid-row: 2; }
 }
 .many-targets .target-status-heading {
   max-width: 100%;
@@ -1397,20 +1443,107 @@ tbody tr:focus-visible {
 
 /* 提交弹窗优先呈现必填信息，可选配置按需展开。 */
 .modal .submit-dialog-body {
-  gap: 14px;
+  gap: 12px;
+  padding: 16px 24px 20px;
+}
+.submit-form-section {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+}
+.submit-content-fields {
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+}
+.modal:has(.submit-dialog-body) .modal-head {
+  padding: 16px 24px;
+}
+.submit-dialog-body .submit-credentials > summary { padding: 9px 0; }
+.submit-dialog-body .submit-options { padding: 10px 12px; }
+.modal.wide:has(.submit-dialog-body):not(:has(.resolve-summary)) {
+  width: min(760px, calc(100vw - 32px));
+}
+.modal:has(.submit-dialog-body):has(.modal-footer) {
+  height: min(690px, calc(100dvh - 64px));
+}
+.modal:has(.submit-dialog-body) .modal-scroll {
+  scrollbar-gutter: stable;
+  overflow-anchor: none;
+}
+.modal-footer {
+  flex: none;
+  padding: 12px 24px;
+  background: var(--surface);
+  border-top: 1px solid var(--line);
+  border-radius: 0 0 var(--radius-dialog) var(--radius-dialog);
+}
+.modal-footer .modal-actions { margin: 0; }
+.submit-dialog-body details {
+  interpolate-size: allow-keywords;
+}
+.submit-dialog-body details::details-content {
+  block-size: 0;
+  overflow: hidden;
+  transition: block-size 220ms ease, content-visibility 220ms allow-discrete;
+}
+.submit-dialog-body details[open]::details-content {
+  block-size: auto;
+}
+@media (prefers-reduced-motion: reduce) {
+  .submit-dialog-body details::details-content { transition: none; }
+}
+.submit-selection summary {
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 12px;
+}
+.submit-branch-config {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(260px, 100%), 1fr));
+  gap: 12px;
+}
+.submit-branch-config .host-field {
+  min-width: 0;
+  gap: 6px;
+}
+.submit-dialog-body textarea {
+  min-height: 60px;
+}
+.submit-delete-option {
+  display: grid;
+  gap: 6px;
+}
+.submit-delete-option label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+}
+.submit-delete-option small {
+  padding-left: 24px;
+  color: var(--muted);
+  font-size: 11px;
+}
+@media (max-width: 600px) {
+  .submit-branch-config {
+    grid-template-columns: 1fr;
+  }
 }
 .submit-dialog-body .submit-summary {
   margin: 0;
   font-size: 12px;
 }
 .submit-dialog-body .submit-branches {
-  max-height: 120px;
-  padding: 0 12px;
+  max-height: 160px;
+  margin-top: 10px;
+  padding: 4px 12px;
 }
 .submit-dialog-body .submit-branch {
-  padding: 10px 0;
-  gap: 2px;
+  padding: 8px 0;
+  gap: 4px;
 }
+.submit-dialog-body .submit-branch code { font-size: 13px; font-weight: 600; color: var(--ink); line-height: 1.5; }
+.submit-dialog-body .submit-branch > span { font-size: 11px; font-weight: 400; color: var(--muted); line-height: 1.5; }
 .submit-dialog-body .stage-toggle {
   margin: 0;
 }
@@ -1430,22 +1563,25 @@ tbody tr:focus-visible {
 .submit-options-fields {
   display: flex;
   flex-direction: column;
-  gap: 14px;
-  padding-top: 14px;
+  gap: 12px;
+  padding-top: 12px;
 }
 .submit-options-fields .host-field { flex: none; }
+.submit-assign-me { align-self: flex-start; }
+.submit-labels {
+  margin: 0;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+  max-height: 160px;
+  overflow-y: auto;
+}
+.submit-labels legend { color: var(--muted); font-size: 12px; }
+.submit-labels label { display: inline-flex; align-items: center; gap: 6px; margin: 4px 12px 4px 0; }
+.submit-labels span { overflow-wrap: anywhere; }
 .submit-dialog-body > .submit-check-hint {
   margin: 0;
   font-size: 12px;
-}
-.submit-dialog-body > .modal-actions {
-  position: sticky;
-  bottom: -26px;
-  z-index: 1;
-  margin-top: 0;
-  padding: 14px 0;
-  background: var(--surface);
-  border-top: 1px solid var(--line);
 }
 
 /* 列表以点击选择记录，避免拖动和连续点击误选中文字。 */
@@ -1556,3 +1692,42 @@ textarea,
 .update-notice span { font-size: 12px; line-height: 1.5; }
 .update-notice progress { width: 100%; accent-color: var(--accent); }
 .update-notice { border: 1px solid var(--line); border-radius: var(--radius-control); }
+
+/* 键盘定位采用控件自身的底色和细边框，不扩张外轮廓。 */
+button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-visible {
+  outline: none;
+  outline-offset: 0;
+}
+button:focus-visible, a:focus-visible { background-color: var(--accent-soft); color: var(--accent); }
+button.primary:focus-visible { background-color: #3549bb; color: white; }
+input:not([type="checkbox"]):not([type="radio"]):focus,
+textarea:focus { outline: none; border-color: #7d8ab3; box-shadow: none; }
+input[type="checkbox"]:focus-visible { outline: none; filter: brightness(.78); }
+
+.submit-destination { display: flex; align-items: flex-start; gap: 8px; padding: 4px 0; color: var(--muted); font-size: 12px; }
+.submit-destination > span { flex-shrink: 0; }
+.submit-destination > svg { margin-top: 2px; }
+.submit-destination code { background: none; padding: 0; color: var(--ink); font-size: 12px; line-height: 1.6; overflow-wrap: anywhere; user-select: text; }
+
+/* 状态横向分列，保留分支为每行的视觉起点。 */
+.target-status-grid { grid-template-columns: repeat(auto-fit, minmax(105px, 1fr)); gap: 12px; }
+.table-scroll .many-targets .target-status-cell { display: flex; flex-direction: column; align-items: flex-start; gap: 5px; padding: 4px 0; }
+.many-targets .target-status-heading { padding: 0; background: transparent; font-size: 11px; font-weight: 500; }
+.many-targets .status { font-size: 11px; min-height: 22px; }
+.many-targets .mr-link { font-size: 11px; }
+.table-scroll .many-targets tbody tr { padding-block: 10px; }
+.table-scroll .many-targets .branch-cell { align-self: center; }
+.many-targets .mr-links { gap: 2px; }
+
+.project-editor-overview { padding: 0; background: transparent; gap: 4px; }
+.project-editor-overview > strong { font-size: 12px; color: var(--muted); font-weight: 400; }
+.project-editor-overview > span { display: none; }
+.project-editor-form { gap: 18px; }
+.project-editor-targets { padding-block: 14px; border-block: 1px solid var(--line); }
+.project-editor-targets .target-bar { flex-wrap: wrap; margin: 0; }
+.project-editor-targets .field-hint { margin: 8px 0 0; }
+.project-editor-form .project-repository-summary { padding: 10px 12px; font-size: 11px; }
+
+.app-shell.desktop-framed { padding-top: 32px; }
+.desktop-titlebar { position: fixed; inset: 0 0 auto; height: 32px; display: flex; align-items: center; padding: 0 140px 0 14px; background: #f5f6f8; color: #65718a; font-size: 11px; -webkit-app-region: drag; user-select: none; }
+body:has(dialog[open]) .desktop-titlebar { -webkit-app-region: no-drag; }

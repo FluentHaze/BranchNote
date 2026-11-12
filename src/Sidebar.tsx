@@ -3,6 +3,7 @@ import {
   Plus,
   Settings2,
 } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import type { Store } from "./model";
 import type { Editor } from "./EditorForm";
 import { version } from "../package.json";
@@ -17,6 +18,24 @@ interface Props {
   setEditor(editor: Editor): void;
 }
 export default function Sidebar({ store, view, navigate, setEditor }: Props) {
+  const [providers, setProviders] = useState<Record<string, "gitlab" | "github" | "other">>({});
+  const providerCache = useRef(new Map<string, Promise<"gitlab" | "github" | "other">>());
+  useEffect(() => {
+    const api = window.branchNote;
+    if (!api) return;
+    let active = true;
+    Promise.all(store.projects.map(async project => {
+      const path = project.repositoryPath;
+      if (!path) return [project.id, "other"] as const;
+      let pending = providerCache.current.get(path);
+      if (!pending) {
+        pending = api.requestProvider(path, "").catch(() => "other" as const);
+        providerCache.current.set(path, pending);
+      }
+      return [project.id, await pending] as const;
+    })).then(entries => { if (active) setProviders(Object.fromEntries(entries)); });
+    return () => { active = false; };
+  }, [store.projects]);
   return (
     <aside className="sidebar">
       <div className="brand">
@@ -41,10 +60,18 @@ export default function Sidebar({ store, view, navigate, setEditor }: Props) {
         {store.projects.map((p) => (
           <button
             key={p.id}
-            className={`nav-item ${view.kind === "project" && view.id === p.id ? "active" : ""} ${p.archived ? "archived" : ""}`}
+            className={`nav-item project-nav-item ${view.kind === "project" && view.id === p.id ? "active" : ""} ${p.archived ? "archived" : ""}`}
             onClick={() => navigate({ kind: "project", id: p.id })}
           >
-            <Folder size={17} style={{ color: p.color }} />
+            <span className="project-provider-icon">
+              {providers[p.id] === "github" ? (
+                <img src="./brands/github.svg" width="18" height="18" alt="GitHub 仓库" />
+              ) : providers[p.id] === "gitlab" ? (
+                <img src="./brands/gitlab.svg" width="20" height="20" alt="GitLab 仓库" />
+              ) : (
+                <Folder size={16} aria-label="本地项目" />
+              )}
+            </span>
             <span className="nav-name">
               {p.name}
               {p.archived ? "（已归档）" : ""}

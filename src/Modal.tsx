@@ -6,11 +6,13 @@ export default function Modal({
   children,
   close,
   wide = false,
+  footer,
 }: {
   title: string;
   children: ReactNode;
   close(): void;
   wide?: boolean;
+  footer?: ReactNode;
 }) {
   const ref = useRef<HTMLDialogElement>(null);
   const titleId = useId();
@@ -44,6 +46,7 @@ export default function Modal({
       <div className="modal-scroll">
         {children}
       </div>
+      {footer && <div className="modal-footer">{footer}</div>}
     </dialog>
   );
 }

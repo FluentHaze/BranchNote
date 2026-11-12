@@ -111,6 +111,7 @@ export default function BranchTable({
             const toggle = () => setSelected(selected.includes(branch.id) ? selected.filter(value => value !== branch.id) : [...selected, branch.id]);
             const statuses = targets.map(target => {
                   const state = targetState(branch, target.id);
+                  const requestKind = state.mr?.url.includes("/pull/") ? "PR" : "MR";
                   const destination = state.target || target.branch;
                   return (
                     <TargetCell className="target-status-cell" key={target.id}>
@@ -124,21 +125,21 @@ export default function BranchTable({
                         onClick={() => void toggleMerged(branch, target.id)}
                         title={state.mergedAt
                           ? "已合入 " + destination + " · " + formatTime(state.mergedAt) + "\n点击重新标记为待提交"
-                          : "MR 状态自动同步；也可点击手动确认已合入" + target.name}
+                          : "合并请求状态自动同步；也可点击手动确认已合入" + target.name}
                       >
                         {state.mergedAt ? <CircleCheck size={15} /> : <Circle size={15} />}
-                        {state.mergedAt ? "已合并" : state.mr?.state === "closed" ? "MR 已关闭" : state.mr ? "MR 待合并" : "待提交"}
+                        {state.mergedAt ? "已合并" : state.mr?.state === "closed" ? `${requestKind} 已关闭` : state.mr ? `${requestKind} 待合并` : "待提交"}
                       </button>
                       {state.mr && (
                         <div className="mr-links">
                           <button className="mr-link" onClick={() => void window.branchNote?.openUrl(state.mr!.url)}>
-                            打开 MR {state.mr.number && "#" + state.mr.number}
+                            打开 {requestKind} {state.mr.number && "#" + state.mr.number}
                           </button>
                           <button
                             type="button"
                             className="mr-copy"
-                            title="复制 MR 地址"
-                            aria-label={`复制${target.name} MR 地址`}
+                            title={`复制 ${requestKind} 地址`}
+                            aria-label={`复制${target.name} ${requestKind} 地址`}
                             onClick={() => void copy(state.mr!.url)}
                           >
                             <Copy size={13} />
@@ -211,7 +212,7 @@ export default function BranchTable({
                         aria-label={`更多操作 ${branch.name}`}
                         aria-haspopup="menu"
                         aria-expanded={menu?.branch.id === branch.id}
-                        title="提交 MR、编辑备注或删除记录"
+                        title="提交合并请求、编辑备注或删除记录"
                         onClick={(event) => {
                           if (menu?.branch.id === branch.id) {
                             setMenu(null);

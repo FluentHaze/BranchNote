@@ -1,18 +1,10 @@
 import { useState, type FormEvent } from "react";
 import { Trash2 } from "lucide-react";
-import { id, now, type Branch, type Project, type Store } from "./model";
+import { id, now, projectTargets, type Branch, type Project, type Store } from "./model";
 import Modal from "./Modal";
 import Select from "./Select";
 import RepositoryPicker from "./RepositoryPicker";
-
-const colors = [
-  "#007aff",
-  "#af52de",
-  "#e58b20",
-  "#299765",
-  "#e65a66",
-  "#64748b",
-];
+import TargetBar from "./TargetBar";
 
 export type Editor =
   | { kind: "branch"; value?: Branch }
@@ -33,6 +25,9 @@ export default function EditorForm({
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const value = editor.value;
+  const [targets, setTargets] = useState(() => editor.kind === "project" && editor.value ? projectTargets(editor.value) : []);
+  const [repositoryPath, setRepositoryPath] = useState(editor.kind === "project" ? editor.value?.repositoryPath : undefined);
+  const draftProject: Project = {id: value?.id || "project-draft", name: value?.name || "新项目", note: "", archived: false, repositoryPath, targets};
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
@@ -103,10 +98,9 @@ export default function EditorForm({
         id: current?.id || id(),
         name,
         note: text("note"),
-        color: text("color"),
         archived: current?.archived || false,
         repositoryPath: text("repositoryPath") || undefined,
-        targets: current ? current.targets : [],
+        targets,
         testTarget: current?.testTarget,
         releaseTarget: current?.releaseTarget,
       };
@@ -129,7 +123,7 @@ export default function EditorForm({
       title={`${value ? "编辑" : "新建"}${editor.kind === "branch" ? "分支记录" : "项目"}`}
       close={close}
     >
-      <form onSubmit={onSubmit} className="form">
+      <form onSubmit={onSubmit} className={`form ${editor.kind === "project" ? "project-editor-form" : ""}`}>
         {editor.kind === "branch" && (
           <label>
             所属项目
@@ -152,7 +146,7 @@ export default function EditorForm({
         {editor.kind === "project" && editor.value && (
           <div className="project-editor-overview">
             <strong>{store.branches.filter(branch => branch.projectId === editor.value?.id).length} 个功能分支</strong>
-            <span>项目名称、颜色和说明用于组织本地跟进记录；MR 目标在项目页单独配置。</span>
+            <span>管理项目资料、关联仓库与合并目标</span>
           </div>
         )}
         <label>
@@ -190,27 +184,14 @@ export default function EditorForm({
           </>
         )}
         {editor.kind === "project" && (
-          <RepositoryPicker initialPath={editor.value?.repositoryPath} />
+          <RepositoryPicker initialPath={editor.value?.repositoryPath} onPathChange={setRepositoryPath} />
         )}
         {editor.kind === "project" && (
-          <fieldset className="color-picker">
-            <legend>项目颜色</legend>
-            {(editor.value?.color && !colors.includes(editor.value.color) ? [...colors, editor.value.color] : colors).map((color) => (
-              <label
-                key={color}
-                style={{ "--project-color": color } as React.CSSProperties}
-              >
-                <input
-                  type="radio"
-                  name="color"
-                  value={color}
-                  defaultChecked={(editor.value?.color || colors[0]) === color}
-                  aria-label={`颜色 ${color}`}
-                />
-                <span />
-              </label>
-            ))}
-          </fieldset>
+          <section className="project-editor-targets" aria-label="项目合并目标">
+            <TargetBar project={draftProject} store={{...store, projects: [draftProject]}}
+              commit={async next => { setTargets(next.projects[0].targets || []); return true; }} />
+            <p className="field-hint">配置测试、发布等阶段的远程分支，保存项目后生效。</p>
+          </section>
         )}
         <label>
           <span className="form-label-inline">

@@ -35,6 +35,8 @@ const {
   removeHost,
   testHost,
   createMergeRequest,
+  mergeRequestOptions,
+  requestProvider,
   syncMergeRequests,
 } = require("./hosts.cjs");
 
@@ -185,9 +187,11 @@ if (primaryInstance) app.whenReady().then(() => {
   // 用访问令牌调接口直接创建 MR / PR；失败时返回原因，由界面给兜底链接
   ipcMain.handle(
     "repository:create-mr",
-    (_, { directory, source, target, title, description, remote }) =>
-      createMergeRequest({ directory, source, target, title, description, remote }),
+    (_, { directory, source, target, title, description, remote, removeSourceBranch, metadata }) =>
+      createMergeRequest({ directory, source, target, title, description, remote, removeSourceBranch, metadata }),
   );
+  ipcMain.handle("repository:mr-options", (_, {directory, remote}) => mergeRequestOptions(directory, remote));
+  ipcMain.handle("repository:request-provider", (_, {directory, remote}) => requestProvider(directory, remote));
   ipcMain.handle("repository:sync-mrs", (_, urls) => syncMergeRequests(urls));
   // 令牌管理：只把域名与掩码返回给界面，令牌原文不出主进程
   ipcMain.handle("hosts:list", () => listHosts());
@@ -256,6 +260,7 @@ if (primaryInstance) app.whenReady().then(() => {
       minWidth: 880,
       minHeight: 650,
       title: "BranchNote",
+      ...(process.platform === "win32" ? {titleBarStyle: "hidden", titleBarOverlay: {color: "#00000000", symbolColor: "#65718a", height: 32}} : {}),
       icon: path.join(__dirname, "../dist/icon.png"),
       backgroundColor: "#f3f6f7",
       autoHideMenuBar: true,

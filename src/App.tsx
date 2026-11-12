@@ -113,6 +113,10 @@ export default function App() {
   }, [toast]);
   useEffect(() => {
     function keydown(event: KeyboardEvent) {
+      if (event.key === "Escape" && !event.defaultPrevented &&
+          !document.querySelector("dialog[open], :popover-open")) {
+        setSelected([]);
+      }
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
         event.preventDefault();
         searchRef.current?.focus();
@@ -210,7 +214,7 @@ export default function App() {
       }));
     const repositoryPath = project.repositoryPath;
     if (!tracked.length && !repositoryPath) {
-      if (manual) setSyncNotice("未关联仓库，暂无需要同步的 MR");
+      if (manual) setSyncNotice("未关联仓库，暂无需要同步的 合并请求");
       return;
     }
     syncing.current = true;
@@ -258,7 +262,7 @@ export default function App() {
       for (const result of [repositoryResult, mrResult]) {
         if (result.status === "rejected") errors.push(result.reason instanceof Error ? result.reason.message : "请检查网络或仓库路径");
       }
-      if (changed && !await commit({...current, branches}, "最近提交与 MR 状态已更新")) return;
+      if (changed && !await commit({...current, branches}, "最近提交与 合并请求 状态已更新")) return;
       if (latestProject.current !== project.id) return;
       setSyncNotice(errors.length ? "部分刷新失败：" + errors.join("；")
         : "已刷新 " + new Date().toLocaleTimeString([], {hour: "2-digit", minute: "2-digit"}) + " · 每 " + refreshLabel + "更新");
@@ -289,14 +293,9 @@ export default function App() {
     setSyncNotice("");
     if (loading || !project) return;
     const refresh = () => { if (!document.hidden) void refreshProject.current(); };
-    refresh();
     const timer = window.setInterval(refresh, refreshSeconds * 1000);
-    window.addEventListener("focus", refresh);
-    document.addEventListener("visibilitychange", refresh);
     return () => {
       clearInterval(timer);
-      window.removeEventListener("focus", refresh);
-      document.removeEventListener("visibilitychange", refresh);
     };
   }, [project?.id, loading, refreshSeconds]);
 
@@ -372,7 +371,8 @@ export default function App() {
     );
 
   return (
-    <div className="app-shell">
+    <div className={`app-shell ${window.branchNote?.platform === "win32" ? "desktop-framed" : ""}`}>
+      {window.branchNote?.platform === "win32" && <div className="desktop-titlebar">BranchNote · 让每个分支都有着落</div>}
       <a className="skip-link" href="#content">
         跳到主内容
       </a>
@@ -432,7 +432,7 @@ export default function App() {
                 <div>
                   <p className="eyebrow">应用设置</p>
                   <h1>数据与设置</h1>
-                  <p>管理本地数据、MR 同步与代码托管凭据。</p>
+                  <p>管理本地数据、合并请求 同步与代码托管凭据。</p>
                 </div>
               </div>
               <section className="settings-panel">
@@ -470,19 +470,19 @@ export default function App() {
                 </div>
               </section>
               <section className="settings-panel">
-                <h2>提交与 MR 状态同步</h2>
+                <h2>提交与 合并请求 状态同步</h2>
                 <div className="setting-row">
                   <div>
                     <h3>自动刷新周期</h3>
-                    <p>修改后自动保存。进入项目或返回窗口时立即刷新，后台暂停轮询。</p>
+                    <p>修改后自动保存。仅按设定间隔或手动刷新，后台暂停轮询。</p>
                   </div>
                   <Select
-                    label="MR 自动刷新周期"
+                    label="合并请求 自动刷新周期"
                     className="refresh-interval-select"
                     value={String(refreshSeconds)}
                     options={mrRefreshIntervals.map(seconds => ({value: String(seconds), label: formatRefreshInterval(seconds)}))}
                     disabled={busy}
-                    onChange={value => void commit({...store, mrRefreshSeconds: Number(value)}, "MR 刷新周期已保存")}
+                    onChange={value => void commit({...store, mrRefreshSeconds: Number(value)}, "合并请求 刷新周期已保存")}
                   />
                 </div>
               </section>
@@ -497,7 +497,7 @@ export default function App() {
                   建议定期导出 JSON 备份。
                 </p>
                 <p className="settings-copy">
-                  选择目标后创建 MR，批量选择会汇总为一条 MR。冲突在临时分支解决，平台状态每 {refreshLabel}自动同步，也可手动刷新。
+                  选择目标后创建 合并请求，批量选择会汇总为一条 合并请求。冲突在临时分支解决，平台状态每 {refreshLabel}自动同步，也可手动刷新。
                 </p>
                 <p className="settings-copy">
                   代码托管令牌单独存放在同一目录的 hosts.json（系统钥匙串加密），不随备份导出或恢复，换机器需要重新填写。
@@ -553,7 +553,7 @@ export default function App() {
                 />
               )}
 
-              <p className="picker-note" role="status">{syncNotice || ("最近提交与 MR 状态每 " + refreshLabel + "自动同步，返回窗口时立即刷新")}</p>
+              <p className="picker-note" role="status">{syncNotice || ("最近提交与合并请求状态每 " + refreshLabel + "自动同步，也可手动刷新")}</p>
               <section className="branch-section">
                 <div className="list-toolbar">
                   <div className="tabs" aria-label="状态筛选">
@@ -578,7 +578,7 @@ export default function App() {
                     ))}
                   </div>
                   <div className="list-filters">
-                    <button className="secondary" disabled={syncBusy || busy} onClick={() => void refreshProject.current(true)} title={syncNotice || ("进入项目、返回窗口及每 " + refreshLabel + "自动同步")}>
+                    <button className="secondary" disabled={syncBusy || busy} onClick={() => void refreshProject.current(true)} title={syncNotice || ("每 " + refreshLabel + "自动同步，也可手动刷新")}>
                       <RefreshCw size={14} />
                       {syncBusy ? "刷新中…" : "刷新"}
                     </button>
@@ -645,7 +645,7 @@ export default function App() {
                         ? "没有符合当前筛选条件的分支，试试其他条件。"
                         : hasAnyRecord
                           ? "需要继续跟进新功能时，从仓库里再挑几条。"
-                          : "从仓库添加功能分支，配置合并目标后可单条或批量提交 MR。"}
+                          : "从仓库添加功能分支，配置合并目标后可单条或批量提交 合并请求。"}
                     </p>
                     {scope.length ? (
                       <button
@@ -787,7 +787,7 @@ export default function App() {
             <p>将删除项目 <strong>{deletingProject.name}</strong>，以及它的
               {store.branches.filter(branch => branch.projectId === deletingProject.id).length} 条分支跟进记录。
             </p>
-            <p className="picker-note">只删除本地台账，不会删除仓库文件、Git 分支或平台上的 MR。此操作不能撤销，可先到设置导出备份。</p>
+            <p className="picker-note">只删除本地台账，不会删除仓库文件、Git 分支或平台上的 合并请求。此操作不能撤销，可先到设置导出备份。</p>
             <div className="modal-actions">
               <button className="secondary" disabled={busy} onClick={() => setDeletingProject(null)}>保留项目</button>
               <button className="danger-button" disabled={busy} onClick={async () => {

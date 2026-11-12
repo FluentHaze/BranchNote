@@ -1,5 +1,6 @@
 const { contextBridge, ipcRenderer } = require("electron");
 contextBridge.exposeInMainWorld("branchNote", {
+  platform: process.platform,
   subscribeTrayAction: (callback) => {
     const listener = (_, action) => callback(action);
     ipcRenderer.on("tray:action", listener);
@@ -55,7 +56,9 @@ contextBridge.exposeInMainWorld("branchNote", {
     ipcRenderer.invoke("repository:conflict-abort", { directory, returnTo }),
   mergeRequestUrl: (directory, source, target, remote) =>
     ipcRenderer.invoke("repository:mr-url", { directory, source, target, remote }),
-  createMergeRequest: (directory, source, target, title, description, remote) =>
+  mergeRequestOptions: (directory, remote) => ipcRenderer.invoke("repository:mr-options", {directory, remote}),
+  requestProvider: (directory, remote) => ipcRenderer.invoke("repository:request-provider", {directory, remote}),
+  createMergeRequest: (directory, source, target, title, description, remote, removeSourceBranch, metadata) =>
     ipcRenderer.invoke("repository:create-mr", {
       directory,
       source,
@@ -63,6 +66,8 @@ contextBridge.exposeInMainWorld("branchNote", {
       title,
       description,
       remote,
+      removeSourceBranch,
+      metadata,
     }),
   syncMergeRequests: (urls) => ipcRenderer.invoke("repository:sync-mrs", urls),
   listHosts: () => ipcRenderer.invoke("hosts:list"),

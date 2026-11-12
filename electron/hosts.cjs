@@ -177,7 +177,7 @@ function describeStatus(entry, status, body) {
   if (status === 403)
     return entry.provider === "gitlab"
       ? "令牌权限不足：GitLab 令牌需要勾选 api（或 write_api）权限"
-      : "令牌权限不足：classic 令牌需要 repo 权限，fine-grained 令牌需要 Pull requests 读写权限";
+      : "令牌权限不足：classic 令牌需要 repo 权限；fine-grained 令牌需要 Pull requests 读写权限，配置指派人、标签与里程碑还需 Issues 读写权限";
   if (status === 404) return "仓库不存在，或令牌无权访问该项目";
   if (status === 400 || status === 422)
     return detail || "请求被拒绝，请检查源分支与目标分支是否都存在";
@@ -239,6 +239,73 @@ async function findExisting(entry, token, info, source, target) {
   return list[0] ? { url: list[0].html_url, number: String(list[0].number) } : null;
 }
 
+async function requestProvider(directory, remote) {
+  const data = await readFile();
+  const info = await remoteInfo(directory, {remote, hosts: data.hosts.map(item => item.host)});
+  if (!info) return "other";
+  return data.hosts.find(item => item.host === info.host.toLowerCase())?.provider || info.provider;
+}
+
+async function mergeRequestOptions(directory, remote) {
+  const data = await readFile();
+  const info = await remoteInfo(directory, {remote, hosts: data.hosts.map(item => item.host)});
+  if (!info) throw new Error("没有找到可识别的远程仓库地址");
+  const saved = data.hosts.find(item => item.host === info.host.toLowerCase());
+  const provider = saved?.provider || info.provider;
+  if (!PROVIDERS.has(provider)) throw new Error("请先在设置中选择 GitLab 或 GitHub 平台类型");
+  if (!saved) throw new Error(`请先为 ${info.host} 配置访问令牌`);
+  const entry = {...saved, provider};
+  const headers = requestHeaders(entry, decryptToken(saved));
+  const base = apiBase(entry);
+  const project = `${base}/projects/${encodeURIComponent(info.projectPath)}`;
+  async function get(url) {
+    const result = await request(url, {headers});
+    if (!result.ok) throw new Error(describeStatus(entry, result.status, result.body));
+    return result.body;
+  }
+  async function list(url) {
+    const items = [];
+    for (let page = 1; ; page++) {
+      const body = await get(`${url}${url.includes("?") ? "&" : "?"}per_page=100&page=${page}`);
+      if (!Array.isArray(body)) throw new Error("平台返回的选项列表格式不正确");
+      items.push(...body);
+      if (body.length < 100) return items;
+    }
+  }
+  function option(item, name) {
+    if (!Number.isSafeInteger(item?.id) || typeof name !== "string")
+      throw new Error("平台返回的选项数据格式不正确");
+    return {id: item.id, name};
+  }
+  if (provider === "github") {
+    const repo = `${base}/repos/${info.owner}/${info.repo}`;
+    const [members, reviewers, milestones, labels, current, repository] = await Promise.all([
+      list(`${repo}/assignees`), list(`${repo}/collaborators`),
+      list(`${repo}/milestones?state=open`), list(`${repo}/labels`), get(`${base}/user`), get(repo),
+    ]);
+    const user = item => ({...option(item, item.login), login: item.login});
+    return {
+      provider, members: members.map(user), reviewers: reviewers.filter(item => item.id !== current.id).map(user),
+      milestones: milestones.map(item => option({...item, id: item.number}, item.title)),
+      labels: labels.map(item => option(item, item.name)), currentUser: user(current),
+      deleteBranchOnMerge: repository.delete_branch_on_merge === true,
+    };
+  }
+  const [members, milestones, labels, current] = await Promise.all([
+    list(`${project}/members/all`),
+    list(`${project}/milestones?state=active&include_parent_milestones=true`),
+    list(`${project}/labels?include_ancestor_groups=true`),
+    get(`${base}/user`),
+  ]);
+  return {
+    provider,
+    members: members.filter(item => item.state === "active").map(item => option(item, `${item.name} (@${item.username})`)),
+    milestones: milestones.map(item => option(item, item.title)),
+    labels: labels.map(item => option(item, item.name)),
+    currentUser: option(current, current.name),
+  };
+}
+
 // 用接口直接创建 MR / PR；返回结构固定的结果对象，前端据此决定展示按钮还是兜底链接
 async function createMergeRequest({
   directory,
@@ -247,6 +314,8 @@ async function createMergeRequest({
   title,
   description,
   remote,
+  removeSourceBranch = false,
+  metadata = {},
 } = {}) {
   if (!source || !target)
     return { status: "failed", message: "缺少源分支或目标分支，无法创建合并请求" };
@@ -305,7 +374,11 @@ async function createMergeRequest({
           target_branch: target,
           title: mrTitle,
           description: body,
-          remove_source_branch: false,
+          remove_source_branch: removeSourceBranch === true,
+          ...(metadata.assigneeId ? {assignee_id: metadata.assigneeId} : {}),
+          ...(metadata.reviewerId ? {reviewer_ids: [metadata.reviewerId]} : {}),
+          ...(metadata.milestoneId ? {milestone_id: metadata.milestoneId} : {}),
+          ...(metadata.labels?.length ? {labels: metadata.labels.join(",")} : {}),
         }),
       });
       if (result.ok && result.body)
@@ -344,6 +417,25 @@ async function createMergeRequest({
         body: JSON.stringify({ title: mrTitle, head: source, base: target, body }),
       },
     );
+    async function configurePullRequest(number) {
+      const repo = `${apiBase(entry)}/repos/${info.owner}/${info.repo}`;
+      const warnings = [];
+      const issue = {
+        ...(metadata.assigneeLogin ? {assignees: [metadata.assigneeLogin]} : {}),
+        ...(metadata.milestoneId ? {milestone: metadata.milestoneId} : {}),
+        ...(metadata.labels?.length ? {labels: metadata.labels} : {}),
+      };
+      const updates = [];
+      if (Object.keys(issue).length) updates.push([`${repo}/issues/${number}`, "PATCH", issue]);
+      if (metadata.reviewerLogin) updates.push([`${repo}/pulls/${number}/requested_reviewers`, "POST", {reviewers: [metadata.reviewerLogin]}]);
+      for (const [url, method, payload] of updates) {
+        try {
+          const updated = await request(url, {method, headers: requestHeaders(entry, token), body: JSON.stringify(payload)});
+          if (!updated.ok) warnings.push(describeStatus(entry, updated.status, updated.body));
+        } catch (error) { warnings.push(error.message); }
+      }
+      return warnings.length ? `PR 已存在，但部分配置未保存：${warnings.join("；")}。可在平台补充或重试配置。` : "";
+    }
     if (result.ok && result.body)
       return {
         status: "created",
@@ -351,6 +443,7 @@ async function createMergeRequest({
         url: result.body.html_url || "",
         number: String(result.body.number || ""),
         message: "Pull Request 已创建",
+        configurationWarning: await configurePullRequest(result.body.number),
       };
     const existing = /already exists/i.test(`${result.body?.message || ""}${result.text || ""}`)
       ? await findExisting(entry, token, info, source, target).catch(() => null)
@@ -362,6 +455,7 @@ async function createMergeRequest({
         url: existing.url,
         number: existing.number,
         message: "该源分支已有打开的 Pull Request",
+        configurationWarning: await configurePullRequest(existing.number),
       };
     return {
       status: "failed",
@@ -412,6 +506,8 @@ async function syncMergeRequests(urls) {
 }
 
 module.exports = {
+  requestProvider,
+  mergeRequestOptions,
   syncMergeRequests,
   listHosts,
   saveHost,

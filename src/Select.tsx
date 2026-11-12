@@ -15,6 +15,7 @@ interface Props {
   disabled?: boolean;
   className?: string;
   searchable?: boolean;
+  searchPlaceholder?: string;
 }
 
 export default function Select({
@@ -27,6 +28,7 @@ export default function Select({
   disabled,
   className = "",
   searchable = false,
+  searchPlaceholder = "搜索分支名称…",
 }: Props) {
   const [internal, setInternal] = useState(
     defaultValue ?? options[0]?.value ?? "",
@@ -168,7 +170,7 @@ export default function Select({
               type="search"
               value={query}
               onChange={event => setQuery(event.target.value)}
-              placeholder="搜索分支名称…"
+              placeholder={searchPlaceholder}
               aria-label={"搜索" + label}
               aria-controls={listId}
               autoComplete="off"

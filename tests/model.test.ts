@@ -21,13 +21,19 @@ const project = (id: string): Project => ({
   id,
   name: id,
   note: "",
-  color: "#007aff",
   archived: false,
 });
 const emptyStore = (): Store => ({
   version: 3,
   projects: [project("main"), project("activity")],
   branches: [],
+});
+
+test("项目不再需要颜色字段，旧备份中的项目颜色读取时移除", () => {
+  const store = emptyStore();
+  assert.deepEqual(parseStore(JSON.stringify(store)), store);
+  const legacy = {...store, projects: store.projects.map(project => ({...project, color: "#007aff"}))};
+  assert.deepEqual(parseStore(JSON.stringify(legacy)), store);
 });
 const THURSDAY = new Date("2026-11-06T10:00:00");
 const STAMP = THURSDAY.toISOString();

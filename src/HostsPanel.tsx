@@ -201,7 +201,7 @@ export default function HostsPanel({
       {loaded && hosts.length === 0 && (
         <p className="settings-copy host-empty">
           <ShieldCheck size={15} />
-          尚未配置访问令牌。请在下方添加；也可打开 MR 创建页，在平台登录后手动提交。
+          尚未配置访问令牌。请在下方添加；也可打开合并请求创建页，在平台登录后手动提交。
         </p>
       )}
 

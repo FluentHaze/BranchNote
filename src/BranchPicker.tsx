@@ -354,7 +354,7 @@ export default function BranchPicker({
               <span className="field-hint">
                 已选择 {chosen.length} 个分支
                 {chosen.length
-                  ? "，添加后可在功能分支列表中选择目标提交 MR"
+                  ? "，添加后可在功能分支列表中选择目标提交 合并请求"
                   : "，已添加过的分支不会重复出现"}
               </span>
               <span className="spacer" />

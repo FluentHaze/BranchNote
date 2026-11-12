@@ -43,7 +43,7 @@ export default function TargetBar({ project, store, commit }: {
     setBusy(true);
     const ok = await commit({...store, projects: store.projects.map(item =>
       item.id === project.id ? {...item, targets: next} : item
-    )}, "MR 目标已更新");
+    )}, "合并请求 目标已更新");
     setBusy(false);
     if (ok) setEditing(false);
   }
@@ -54,11 +54,11 @@ export default function TargetBar({ project, store, commit }: {
   }
   return (
     <>
-      <div className="target-bar" aria-label="MR 目标分支">
-        <span className="target-bar-caption">MR 目标</span>
+      <div className="target-bar" aria-label="合并请求 目标分支">
+        <span className="target-bar-caption">合并请求 目标</span>
         {!projectTargets(project).length && <span className="target-bar-caption">尚未配置，点击 ＋ 添加目标</span>}
         {projectTargets(project).map(target => (
-          <button
+          <button type="button"
             key={target.id}
             className="target-chip custom"
             style={{"--target-color": target.color, "--target-tint": target.color + "12"} as CSSProperties}
@@ -70,14 +70,14 @@ export default function TargetBar({ project, store, commit }: {
             <Pencil size={12} />
           </button>
         ))}
-        <button className="icon-button" aria-label="管理 MR 目标" title="添加、改名或删除 MR 目标" onClick={open}>
+        <button type="button" className="icon-button" aria-label="管理 合并请求 目标" title="添加、改名或删除 合并请求 目标" onClick={open}>
           <Plus size={16} />
         </button>
       </div>
       {editing && (
-        <Modal title="设置 MR 目标" close={() => { if (!busy) setEditing(false); }} wide>
+        <Modal title="设置 合并请求 目标" close={() => { if (!busy) setEditing(false); }} wide>
           <div className="target-form">
-            <p className="picker-note">为每个合并目标设置名称、颜色和远程分支，MR 与合并状态分别记录。</p>
+            <p className="picker-note">为每个合并目标设置名称、颜色和远程分支，合并请求 与合并状态分别记录。</p>
             {!project.repositoryPath && (
               <p className="warning-panel">请先关联项目仓库。</p>
             )}
@@ -117,14 +117,14 @@ export default function TargetBar({ project, store, commit }: {
                     <span className="sr-only">远程分支</span>
                     <Select
                       searchable
-                      label={target.name + " MR 目标"}
+                      label={target.name + " 合并请求 目标"}
                       value={target.branch}
                       options={options}
                       disabled={busy || !options.length}
                       onChange={value => update(target.id, {branch: value})}
                     />
                   </label>
-                  <button
+                  <button type="button"
                     className="icon-button danger"
                     aria-label={"删除目标 " + target.name}
                     title="仅移除配置，仓库分支与历史记录保留"
@@ -137,7 +137,7 @@ export default function TargetBar({ project, store, commit }: {
               ))}
             </div>
             <div className="target-config-footer">
-            <button
+            <button type="button"
               className="secondary add-target"
               disabled={busy}
               onClick={() => setTargets(current => [...current, {
@@ -148,8 +148,8 @@ export default function TargetBar({ project, store, commit }: {
               添加目标
             </button>
             <div className="modal-actions">
-              <button className="secondary" disabled={busy} onClick={() => setEditing(false)}>取消</button>
-              <button className="primary" disabled={busy || (targets.length > 0 && !options.length)} onClick={() => void save()}>保存目标</button>
+              <button type="button" className="secondary" disabled={busy} onClick={() => setEditing(false)}>取消</button>
+              <button type="button" className="primary" disabled={busy || (targets.length > 0 && !options.length)} onClick={() => void save()}>保存目标</button>
             </div>
             </div>
           </div>

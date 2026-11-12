@@ -13,7 +13,6 @@ export interface Project {
   id: string;
   name: string;
   note: string;
-  color: string;
   archived: boolean;
   repositoryPath?: string;
   targets?: MRTarget[];
@@ -209,10 +208,9 @@ export function parseStore(raw: string): Store {
     !value.projects.every(
       (p) =>
         object(p) &&
-        strings(p, ["id", "name", "note", "color"]) &&
+        strings(p, ["id", "name", "note"]) &&
         p.name.trim() &&
         validTargets(p.targets) &&
-        /^#[0-9a-f]{6}$/i.test(p.color as string) &&
         typeof p.archived === "boolean" &&
         (p.repositoryPath === undefined ||
           typeof p.repositoryPath === "string") &&
@@ -259,9 +257,10 @@ export function parseStore(raw: string): Store {
     version: 3,
     ...(source.mrRefreshSeconds !== undefined ? {mrRefreshSeconds: source.mrRefreshSeconds} : {}),
     projects: source.projects.map((item) => {
-      // 旧数据里的 branchLabels（已废弃，只保留分支备注）在读取时丢弃
-      const { branchLabels: _legacy, ...rest } = item as Project & {
+      // 读取时丢弃已移除的项目颜色和旧分支标签
+      const { branchLabels: _legacy, color: _legacyColor, ...rest } = item as Project & {
         branchLabels?: unknown;
+        color?: unknown;
       };
       return rest as Project;
     }),

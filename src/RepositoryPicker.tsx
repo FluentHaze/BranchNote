@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { FolderOpen } from "lucide-react";
 import type { Repository } from "./storage";
 
-export default function RepositoryPicker({initialPath = ""}: {initialPath?: string}) {
+export default function RepositoryPicker({initialPath = "", onPathChange}: {initialPath?: string; onPathChange?(path: string): void}) {
   const [path, setPath] = useState(initialPath);
   const [repository, setRepository] = useState<Repository | null>(null);
   const [busy, setBusy] = useState(false);
@@ -34,7 +34,7 @@ export default function RepositoryPicker({initialPath = ""}: {initialPath?: stri
             setError("");
             try {
               const value = await window.branchNote!.pickRepository();
-              if (value) { setRepository(value); setPath(value.path); }
+              if (value) { setRepository(value); setPath(value.path); onPathChange?.(value.path); }
             } catch (reason) {
               setError(reason instanceof Error ? reason.message : "无法读取仓库");
             } finally { setBusy(false); }

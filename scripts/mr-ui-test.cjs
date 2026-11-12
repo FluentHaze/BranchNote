@@ -23,7 +23,7 @@ if (process.type === "renderer") {
     branches:["main","test","release", ...data.branches.map(b => b.name)].map(name => ({name, local:true, remoteRef:"origin/"+name, remoteRefs:["origin/"+name], subject:"feat: "+name, ahead:0, behind:0}))};
   contextBridge.exposeInMainWorld("branchNote", {
     read:async()=>JSON.stringify(data), write:async raw=>{data=JSON.parse(raw);},
-    readRepository:async()=>repo, mergeState:async()=>({session:null, unmerged:[]}),
+    requestProvider:async()=>"gitlab", readRepository:async()=>repo, mergeState:async()=>({session:null, unmerged:[]}),
     prepareMerge:async(...args)=>{calls.push(["prepare", ...args]); return {id:"plan"};},
     checkMerge:async()=>{calls.push(["check"]);return {status:forceConflict?"conflict":"clean",branch:"feature/batch-submit",files:forceConflict?["src/conflict.ts"]:[],merged:[],pending:[],resolveBranch:calls.filter(c=>c[0]==="prepare").at(-1)[4]==="resolve"?"resolve/test":calls.filter(c=>c[0]==="prepare").at(-1)[4]};},
     forceConflict:async value=>{forceConflict=value;},
@@ -55,8 +55,8 @@ if (process.type === "renderer") {
       const clickText = text=>evaluate("Array.from(document.querySelectorAll('button')).find(b=>b.textContent.trim()==="+JSON.stringify(text)+").click()");
       await waitFor("!!document.querySelector('table')");
       await clickText("设置与令牌v0.2.0");
-      await waitFor("!!document.querySelector('[aria-label=\"MR 自动刷新周期\"]')");
-      await evaluate("document.querySelector('[aria-label=\"MR 自动刷新周期\"]').click()");
+      await waitFor("!!document.querySelector('[aria-label=\"合并请求自动刷新周期\"]')");
+      await evaluate("document.querySelector('[aria-label=\"合并请求自动刷新周期\"]').click()");
       assert.equal(await evaluate("getComputedStyle(document.querySelector('.select-menu:popover-open')).borderRadius"),"14px");
       assert.equal(await evaluate("getComputedStyle(document.querySelector('.select-menu:popover-open [role=option]')).borderRadius"),"8px");
       assert.equal(await evaluate("document.querySelectorAll('.select-menu:popover-open [role=option]').length"),6);
@@ -64,7 +64,7 @@ if (process.type === "renderer") {
       fs.writeFileSync(path.join(root,"docs/e2e/refresh-settings.png"),(await win.webContents.capturePage()).toPNG());
 
       await evaluate("Array.from(document.querySelectorAll('.select-menu:popover-open [role=option]')).find(option=>option.textContent.includes('5 分钟')).click()");
-      await waitFor("(document.querySelector('[aria-label=\"MR 自动刷新周期\"]').textContent.includes('5 分钟'))");
+      await waitFor("(document.querySelector('[aria-label=\"合并请求自动刷新周期\"]').textContent.includes('5 分钟'))");
       assert.equal((await evaluate("window.branchNote.inspect()")).data.mrRefreshSeconds,300);
       await evaluate("window.originalInterval=window.setInterval;window.intervalValues=[];window.setInterval=(handler,delay,...args)=>{window.intervalValues.push(delay);return window.originalInterval(handler,delay,...args);};document.querySelector('.sidebar nav .nav-item').click()");
       await waitFor("!!document.querySelector('table')");

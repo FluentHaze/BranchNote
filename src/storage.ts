@@ -174,16 +174,35 @@ export interface MRStatusResult {
   error?: string;
 }
 export interface MergeRequestResult {
+  configurationWarning?: string;
   status: "created" | "exists" | "no-token" | "unsupported" | "failed";
   provider?: "gitlab" | "github" | "other";
   url?: string;
   number?: string;
   message: string;
 }
+export interface MRMetadata {
+  assigneeLogin?: string;
+  reviewerLogin?: string;
+  assigneeId?: number;
+  reviewerId?: number;
+  milestoneId?: number;
+  labels?: string[];
+}
+export interface MROptions {
+  provider: "gitlab" | "github";
+  members: {id: number; name: string; login?: string}[];
+  reviewers?: {id: number; name: string; login?: string}[];
+  milestones: {id: number; name: string}[];
+  labels: {id: number; name: string}[];
+  currentUser: {id: number; name: string; login?: string};
+  deleteBranchOnMerge?: boolean;
+}
 
 declare global {
   interface Window {
     branchNote?: {
+      platform: string;
       subscribeTrayAction(callback: (action: "refresh" | "settings") => void): () => void;
       getUpdate(): Promise<UpdateState>;
       update(action: UpdateAction): Promise<void>;
@@ -246,7 +265,11 @@ declare global {
         title?: string,
         description?: string,
         remote?: string,
+        removeSourceBranch?: boolean,
+        metadata?: MRMetadata,
       ): Promise<MergeRequestResult>;
+      mergeRequestOptions(directory: string, remote: string): Promise<MROptions>;
+      requestProvider(directory: string, remote: string): Promise<"gitlab" | "github" | "other">;
       syncMergeRequests(urls: string[]): Promise<MRStatusResult[]>;
       listHosts(): Promise<HostCredential[]>;
       saveHost(payload: {
