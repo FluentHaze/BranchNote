@@ -9,6 +9,8 @@ const { promisify } = require("node:util");
 const runApplication = promisify(execFile);
 const {
   readRepository,
+  UnsafeRepositoryError,
+  trustRepository,
   fetchRepository,
   prepareMerge,
   checkMerge,
@@ -60,7 +62,25 @@ if (primaryInstance) app.whenReady().then(() => {
       title: "选择本地 Git 仓库",
       properties: ["openDirectory"],
     });
-    return result.canceled ? null : readRepository(result.filePaths[0]);
+    if (result.canceled) return null;
+    const directory = result.filePaths[0];
+    try {
+      return await readRepository(directory);
+    } catch (error) {
+      if (!(error instanceof UnsafeRepositoryError)) throw error;
+      const { response } = await dialog.showMessageBox(window, {
+        type: "warning",
+        title: "信任本地 Git 仓库",
+        message: "此 Git 仓库的所有者与当前用户不同",
+        detail: `${error.repositoryPath}\n\n确认来源可信后，可以为此仓库添加 Git 信任例外并继续导入。该设置会保存在当前用户的 Git 配置中。`,
+        buttons: ["取消", "信任并导入"],
+        defaultId: 0,
+        cancelId: 0,
+      });
+      if (response !== 1) return null;
+      await trustRepository(error.repositoryPath);
+      return readRepository(directory);
+    }
   });
   ipcMain.handle("repository:read", (_, directory) =>
     readRepository(directory),

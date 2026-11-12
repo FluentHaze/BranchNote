@@ -12,6 +12,22 @@ const FIELDS =
 // 合并会话落盘在 .git 里：应用重启后还能接着解决冲突、继续合并剩余分支
 const SESSION_FILE = "branchnote-merge.json";
 
+class UnsafeRepositoryError extends Error {
+  constructor(repositoryPath) {
+    const quotedPath = `'${repositoryPath.replace(/'/g, "'\\''")}'`;
+    super(`Git 检测到仓库 ${repositoryPath} 的所有者与当前用户不同。确认信任此仓库后，请在 Git Bash 中执行以下命令：\ngit config --global --add safe.directory ${quotedPath}`);
+    this.repositoryPath = repositoryPath;
+  }
+}
+
+async function trustRepository(repositoryPath) {
+  try {
+    await exec(repositoryPath, ["config", "--global", "--add", "safe.directory", repositoryPath]);
+  } catch (error) {
+    throw new Error(`无法保存 Git 仓库信任设置：${describe(error)}`);
+  }
+}
+
 function exec(directory, args, options = {}) {
   return run("git", ["-C", directory, ...args], {
     windowsHide: true,
@@ -66,7 +82,10 @@ async function repositoryRoot(directory) {
   try {
     return (await exec(directory, ["rev-parse", "--show-toplevel"])).stdout.trim();
   } catch (error) {
-    if (/not a git repository/i.test(error.stderr || ""))
+    const stderr = error.stderr || "";
+    const unsafeRepository = /^fatal: detected dubious ownership in repository at '(.+)'\r?$/m.exec(stderr);
+    if (unsafeRepository) throw new UnsafeRepositoryError(unsafeRepository[1]);
+    if (/not a git repository/i.test(stderr))
       throw new Error("所选文件夹不属于 Git 仓库，请重新选择");
     throw new Error(describe(error));
   }
@@ -1220,6 +1239,8 @@ async function pushBranch(directory, branch, remote, checkedSource) {
 }
 
 module.exports = {
+  UnsafeRepositoryError,
+  trustRepository,
   readRepository,
   fetchRepository,
   prepareMerge,
