@@ -23,7 +23,14 @@ if (process.type === "renderer") {
     branches:["main","test","release", ...data.branches.map(b => b.name)].map(name => ({name, local:true, remoteRef:"origin/"+name, remoteRefs:["origin/"+name], subject:"feat: "+name, ahead:0, behind:0}))};
   contextBridge.exposeInMainWorld("branchNote", {
     read:async()=>JSON.stringify(data), write:async raw=>{data=JSON.parse(raw);},
+    subscribeTrayAction:()=>()=>{},
+    subscribeUpdate:()=>()=>{}, getUpdate:async()=>({status:"manual"}),
     requestProvider:async()=>"gitlab", readRepository:async()=>repo, mergeState:async()=>({session:null, unmerged:[]}),
+    fetchRepository:async directory=>{
+      calls.push(["fetch",directory]);
+      const branch = {name:"release/new", local:false, remoteRef:"origin/release/new"};
+      return {repository:{...repo, branches:[...repo.branches,branch]}, added:[branch.name], updated:[], removed:[], errors:[]};
+    },
     prepareMerge:async(...args)=>{calls.push(["prepare", ...args]); return {id:"plan"};},
     checkMerge:async()=>{calls.push(["check"]);return {status:forceConflict?"conflict":"clean",branch:"feature/batch-submit",files:forceConflict?["src/conflict.ts"]:[],merged:[],pending:[],resolveBranch:calls.filter(c=>c[0]==="prepare").at(-1)[4]==="resolve"?"resolve/test":calls.filter(c=>c[0]==="prepare").at(-1)[4]};},
     forceConflict:async value=>{forceConflict=value;},
@@ -53,7 +60,24 @@ if (process.type === "renderer") {
         throw new Error("Timed out: "+code);
       };
       const clickText = text=>evaluate("Array.from(document.querySelectorAll('button')).find(b=>b.textContent.trim()==="+JSON.stringify(text)+").click()");
+      const setInput=async(selector,value)=>evaluate("(()=>{const e=document.querySelector("+JSON.stringify(selector)+");Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(e,"+JSON.stringify(value)+");e.dispatchEvent(new Event('input',{bubbles:true}));})()");
       await waitFor("!!document.querySelector('table')");
+      await evaluate("document.querySelector('.target-chip').click()");
+      await waitFor("document.querySelector('.target-form .select-trigger:enabled') !== null");
+      const targetName = 'input[aria-label="目标名称 1"]';
+      await setInput(targetName,"未保存的目标名称");
+      await clickText("更新远程分支");
+      await waitFor("document.querySelector('.target-form [role=status]')?.textContent==='远程分支已更新'");
+      assert.deepEqual((await evaluate("window.branchNote.inspect()")).calls.filter(c=>c[0]==="fetch").at(-1),["fetch","/fixture"]);
+      assert.equal(await evaluate(`document.querySelector(${JSON.stringify(targetName)}).value`),"未保存的目标名称");
+      await evaluate("document.querySelector('.target-form .select-trigger').click()");
+      await waitFor("!!document.querySelector('.select-menu:popover-open input')");
+      await setInput(".select-menu:popover-open input","release/new");
+      await waitFor("document.querySelector('.select-menu:popover-open [role=option]')?.textContent.trim()==='origin/release/new'");
+      await clickText("取消");
+      await waitFor("!document.querySelector('dialog[open]')");
+      console.log("合并请求目标弹窗远程分支更新通过");
+
       await clickText("设置与令牌v0.2.0");
       await waitFor("!!document.querySelector('[aria-label=\"合并请求自动刷新周期\"]')");
       await evaluate("document.querySelector('[aria-label=\"合并请求自动刷新周期\"]').click()");
@@ -93,7 +117,6 @@ if (process.type === "renderer") {
       fs.writeFileSync(path.join(root,"docs/e2e/mr-targets.png"),(await win.webContents.capturePage()).toPNG());
       await evaluate("document.querySelector('.target-form .select-trigger').click()");
       await waitFor("!!document.querySelector('.select-menu:popover-open .select-search input')");
-      const setInput=async(selector,value)=>evaluate("(()=>{const e=document.querySelector("+JSON.stringify(selector)+");Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(e,"+JSON.stringify(value)+");e.dispatchEvent(new Event('input',{bubbles:true}));})()");
       await setInput(".select-menu:popover-open .select-search input","release");
       await waitFor("document.querySelectorAll('.select-menu:popover-open [role=option]').length===1");
       assert.equal(await evaluate("document.querySelector('.select-menu:popover-open [role=option]').textContent"),"origin/release");

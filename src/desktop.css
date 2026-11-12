@@ -1615,6 +1615,14 @@ textarea,
   padding: 8px 26px 18px;
   gap: 12px;
 }
+.target-config-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+}
+.target-config-toolbar .picker-note { margin: 0; }
 .target-config-head,
 .target-form .target-config-row {
   display: grid;
