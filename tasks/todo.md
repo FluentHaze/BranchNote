@@ -122,7 +122,7 @@
 ## 2026-11-16 最新远程发行
 - [x] 检查工作区与维护规范并快进拉取 main 至 6bc82b8
 - [x] 执行测试与构建
-- [ ] 确认 GitHub 发布认证、版本与产物后发布
+- [x] 确认 GitHub 发布认证、版本与产物后发布
 
 ### Review
 - 原工作区干净，已通过 HTTPS 拉取最新代码。pnpm test：112 通过、1 跳过、0 失败；pnpm run build 成功。当前运行 Node 20.18.1，Vite 给出版本提示；正式打包需切换现有 Node 24.22.1。
@@ -131,3 +131,5 @@
 - 已获提交、推送和发布授权；版本递增为 0.2.6。Node 24 生产构建、Mac 双架构打包完成。MR UI 过时夹具修复后完整回归通过。Windows Electron 官方资源下载中。
 
 - Windows 与 macOS 双架构使用官方 Electron45.2.3，下载资源 SHA256 已与官方清单核验。绕过本机损坏 DNS 使用官方 IP，不修改系统设置。Windows 打包进行中；待上传后核验附件 digest 与 latest。
+
+- Review 完成：v0.2.6 已公开并设为 latest；14 个附件 size/digest 与本地产物一致。Windows Setup/portable、Mac arm64/x64 DMG/ZIP 及更新清单均已发布。源码与标签已推送；Windows真机安装与跨版本升级、Apple公证仍未执行。
