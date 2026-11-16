@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from "react";
 import { Trash2 } from "lucide-react";
-import { id, now, projectTargets, type Branch, type Project, type Store } from "./model";
+import { id, now, projectName, projectTargets, type Branch, type Project, type Store } from "./model";
 import Modal from "./Modal";
 import Select from "./Select";
 import RepositoryPicker from "./RepositoryPicker";
@@ -32,7 +32,7 @@ export default function EditorForm({
     event.preventDefault();
     const form = new FormData(event.currentTarget);
     const text = (key: string) => String(form.get(key) || "").trim();
-    const name = text("name");
+    const name = editor.kind === "project" && repositoryPath ? projectName({ name: "", repositoryPath }) : text("name");
     if (!name) {
       setError("请填写名称");
       return;
@@ -90,7 +90,7 @@ export default function EditorForm({
       };
     } else {
       const current = editor.kind === "project" ? editor.value : undefined;
-      if (store.projects.some((p) => p.name === name && p.id !== current?.id)) {
+      if (!repositoryPath && store.projects.some((p) => p.name === name && p.id !== current?.id)) {
         setError("项目名称已存在");
         return;
       }
@@ -138,7 +138,7 @@ export default function EditorForm({
                 .filter((p) => !p.archived || p.id === editor.value?.projectId)
                 .map((p) => ({
                   value: p.id,
-                  label: `${p.name}${p.archived ? "（已归档）" : ""}`,
+                  label: `${projectName(p)}${p.archived ? "（已归档）" : ""}`,
                 }))}
             />
           </label>
@@ -149,6 +149,7 @@ export default function EditorForm({
             <span>管理项目资料、关联仓库与合并目标</span>
           </div>
         )}
+        {(editor.kind === "branch" || !repositoryPath) && (
         <label>
           {editor.kind === "branch" ? "分支名称" : "项目名称"}
           <input
@@ -162,6 +163,7 @@ export default function EditorForm({
             }
           />
         </label>
+        )}
         {editor.kind === "branch" && (
           <>
             <label>

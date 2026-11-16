@@ -7,19 +7,23 @@ export default function Modal({
   close,
   wide = false,
   footer,
+  className = "",
+  autoFocusInput = true,
 }: {
   title: string;
   children: ReactNode;
   close(): void;
   wide?: boolean;
   footer?: ReactNode;
+  className?: string;
+  autoFocusInput?: boolean;
 }) {
   const ref = useRef<HTMLDialogElement>(null);
   const titleId = useId();
   useEffect(() => {
     const dialog = ref.current!;
     dialog.showModal();
-    dialog
+    if (autoFocusInput) dialog
       .querySelector<HTMLInputElement>('input:not([type="hidden"])')
       ?.focus();
     return () => dialog.close();
@@ -28,7 +32,7 @@ export default function Modal({
     <dialog
       ref={ref}
       aria-labelledby={titleId}
-      className={wide ? "modal wide" : "modal"}
+      className={`${wide ? "modal wide" : "modal"} ${className}`}
       onCancel={(event) => {
         event.preventDefault();
         close();

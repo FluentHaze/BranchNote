@@ -7,6 +7,7 @@ import {
   UserRound,
 } from "lucide-react";
 import Modal from "./Modal";
+import useGitOperation from "./useGitOperation";
 import { id, now, type Project, type Store } from "./model";
 import type { Repository } from "./storage";
 
@@ -27,7 +28,9 @@ export default function BranchPicker({
   close(): void;
 }) {
   const [repository, setRepository] = useState<Repository | null>(null);
-  const [busy, setBusy] = useState(false);
+  const [localBusy, setBusy] = useState(false);
+  const gitOperation = useGitOperation();
+  const busy = localBusy || gitOperation !== null;
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [query, setQuery] = useState("");
@@ -202,10 +205,11 @@ export default function BranchPicker({
               className="secondary"
               disabled={busy}
               onClick={refresh}
+              aria-busy={busy}
               title="执行 git fetch --prune，拉取所有远程分支的最新状态"
             >
-              <RefreshCw size={16} className={busy ? "spin" : ""} />
-              更新分支
+              <RefreshCw size={16} aria-hidden="true" className={busy ? "spin" : ""} />
+              {busy ? "更新中…" : "更新分支"}
             </button>
           )}
         </div>

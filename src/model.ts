@@ -78,6 +78,10 @@ export function weekNumber(date = new Date()): number {
 export const dateOnly = (date = new Date()) =>
   `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 
+export function projectName(project: Pick<Project, "name" | "repositoryPath">): string {
+  return project.repositoryPath?.replace(/[\\/]+$/, "").split(/[\\/]/).pop() || project.name;
+}
+
 export type Stage = string;
 
 export function projectTargets(project: Project): MRTarget[] {

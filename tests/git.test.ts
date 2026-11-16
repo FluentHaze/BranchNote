@@ -14,6 +14,7 @@ import type {
   ContinueResult,
   FinalizeResult,
   Repository,
+  RepositoryStatus,
   MergePlan,
   MergeResult,
   MergeState,
@@ -24,6 +25,7 @@ import type {
 
 const require = createRequire(import.meta.url);
 const service = require("../electron/git.cjs") as {
+  readRepositoryStatus(directory: string): Promise<RepositoryStatus>;
   readRepository(directory: string): Promise<Repository>;
   fetchRepository(directory: string): Promise<FetchResult>;
   prepareMerge(
@@ -127,6 +129,73 @@ async function fixture() {
     cleanup: () => rm(directory, { recursive: true, force: true }),
   };
 }
+
+test("统一状态区分分支、detached HEAD 及工作区和暂存区", async () => {
+  const f = await fixture();
+  try {
+    const initial = await service.readRepositoryStatus(f.directory);
+    assert.equal(initial.head, "branch");
+    assert.equal(initial.branch, "release");
+    assert.equal(initial.clean, true);
+    await writeFile(path.join(f.directory, "shared.txt"), "staged\n");
+    await f.git("add", "shared.txt");
+    await writeFile(path.join(f.directory, "shared.txt"), "unstaged\n");
+    await writeFile(path.join(f.directory, "中文 空格.txt"), "untracked\n");
+    const before = await f.git("diff", "--cached");
+    const status = await service.readRepositoryStatus(f.directory);
+    assert.equal(status.staged, true);
+    assert.equal(status.unstaged, true);
+    assert.equal(status.untracked, true);
+    assert.equal(status.clean, false);
+    assert.equal(await f.git("diff", "--cached"), before);
+    await f.git("checkout", "--detach");
+    const detached = await service.readRepositoryStatus(f.directory);
+    assert.equal(detached.head, "detached");
+    assert.equal(detached.branch, null);
+    assert.equal(detached.commit, initial.commit);
+  } finally { await f.cleanup(); }
+});
+
+test("统一状态读取尚无提交的仓库及 Git 操作标记", async () => {
+  const directory = await mkdtemp(path.join(tmpdir(), "branchnote-status-test-"));
+  const git = gitIn(directory);
+  try {
+    await git("init", "--initial-branch=main");
+    const status = await service.readRepositoryStatus(directory);
+    assert.equal(status.head, "unborn");
+    assert.equal(status.branch, "main");
+    assert.equal(status.commit, null);
+    assert.equal(status.clean, true);
+    for (const [marker, operation] of [["MERGE_HEAD", "merge"], ["CHERRY_PICK_HEAD", "cherry-pick"], ["REVERT_HEAD", "revert"]]) {
+      const file = path.join(directory, ".git", marker);
+      await writeFile(file, "0123456789012345678901234567890123456789\n");
+      assert.ok((await service.readRepositoryStatus(directory)).operations.includes(operation as RepositoryStatus["operations"][number]));
+      await rm(file);
+    }
+    for (const marker of ["rebase-merge", "rebase-apply", "sequencer"]) {
+      const folder = path.join(directory, ".git", marker);
+      await mkdir(folder);
+      assert.ok((await service.readRepositoryStatus(directory)).operations.includes(marker === "sequencer" ? "sequencer" : "rebase"));
+      await rm(folder, {recursive: true});
+    }
+  } finally { await rm(directory, {recursive: true, force: true}); }
+});
+
+test("未完成的 Git 序列操作阻止新合并，移除标记后可重新准备", async () => {
+  const f = await fixture();
+  try {
+    await f.change("feature/status", "status.txt", "feature\n");
+    const head = await f.git("rev-parse", "HEAD");
+    const sequencer = path.join(f.directory, ".git", "sequencer");
+    await mkdir(sequencer);
+    await assert.rejects(service.prepareMerge(f.directory, "release", ["feature/status"], "resolve/status"), /外部 Git 工具/);
+    assert.equal(await f.git("rev-parse", "HEAD"), head);
+    assert.equal(await f.git("status", "--porcelain"), "");
+    await rm(sequencer, {recursive: true});
+    const plan = await service.prepareMerge(f.directory, "release", ["feature/status"], "resolve/status");
+    assert.equal(plan.currentBranch, "feature/status");
+  } finally { await f.cleanup(); }
+});
 
 // 带远程仓库的沙箱：origin 为裸仓库，work / peer 是两套工作副本
 async function remoteFixture() {

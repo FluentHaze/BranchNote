@@ -1,6 +1,46 @@
 import { blankStore, parseStore, type Store } from "./model";
 import type { UpdateState, UpdateAction } from "./update";
 
+export type WorkspaceGroup = "staged" | "unstaged" | "untracked";
+export interface WorkspaceCommitResult {
+  branch: string | null;
+  commit: string;
+}
+export interface WorkspaceFile {
+  path: string;
+  group: WorkspaceGroup;
+  status: string;
+  originalPath: string | null;
+  submodule: boolean;
+}
+export interface Workspace {
+  path: string;
+  files: WorkspaceFile[];
+}
+export interface WorkspaceDiff {
+  path: string;
+  group: WorkspaceGroup;
+  kind: "text" | "empty" | "binary" | "submodule" | "conflict" | "unsupported" | "limited";
+  text: string;
+  message: string;
+}
+export interface RepositoryStatus {
+  path: string;
+  head: "branch" | "detached" | "unborn";
+  branch: string | null;
+  commit: string | null;
+  upstream: string | null;
+  /** 基于本地远程引用，读取状态不会自动 fetch */
+  ahead: number;
+  behind: number;
+  staged: boolean;
+  unstaged: boolean;
+  untracked: boolean;
+  conflicts: boolean;
+  clean: boolean;
+  operations: ("merge" | "rebase" | "cherry-pick" | "revert" | "sequencer")[];
+}
+
 export interface RepositoryBranch {
   /** 短名，不含远程前缀，例如 feature/login */
   name: string;
@@ -33,11 +73,22 @@ export interface Repository {
   branches: RepositoryBranch[];
 }
 export interface FetchResult {
+  remoteResults: { remote: string; success: boolean; message: string }[];
   repository: Repository;
   updated: { name: string; from: string; to: string }[];
   added: string[];
   removed: string[];
   errors: string[];
+}
+export interface GitWorkflow {
+  repository: Repository;
+  status: RepositoryStatus;
+  upstream: { remote: string; branch: string } | null;
+}
+export interface BranchSyncTarget {
+  branch: string;
+  remote: string;
+  target: string;
 }
 export interface MergePlan {
   id: string;
@@ -203,12 +254,24 @@ declare global {
   interface Window {
     branchNote?: {
       platform: string;
+      getGitOperation(): Promise<string | null>;
+      subscribeGitOperation(callback: (operation: string | null) => void): () => void;
       subscribeTrayAction(callback: (action: "refresh" | "settings") => void): () => void;
       getUpdate(): Promise<UpdateState>;
       update(action: UpdateAction): Promise<void>;
       subscribeUpdate(callback: (state: UpdateState) => void): () => void;
       pickRepository(): Promise<Repository | null>;
       readRepository(path: string): Promise<Repository>;
+      readRepositoryStatus(path: string): Promise<RepositoryStatus>;
+      readGitWorkflow(path: string): Promise<GitWorkflow>;
+      createLocalBranch(path: string, name: string, source: string, checkout: boolean): Promise<void>;
+      switchLocalBranch(path: string, ref: string): Promise<void>;
+      syncCurrentBranch(path: string, action: "pull" | "push", target: BranchSyncTarget): Promise<BranchSyncTarget>;
+      readWorkspace(path: string): Promise<Workspace>;
+      readWorkspaceDiff(path: string, file: string, group: WorkspaceGroup): Promise<WorkspaceDiff>;
+      updateWorkspaceIndex(path: string, action: "stage" | "unstage", files: string[] | null): Promise<void>;
+      commitWorkspace(path: string, title: string, body: string): Promise<WorkspaceCommitResult>;
+      commitWorkspaceFiles(path: string, title: string, body: string, files: string[]): Promise<WorkspaceCommitResult>;
       fetchRepository(path: string): Promise<FetchResult>;
       prepareMerge(
         path: string,

@@ -269,6 +269,7 @@ export default function ConflictResolver({
         <button
           className="icon-button"
           aria-label="刷新冲突状态"
+          aria-busy={busy}
           title="如果在外部编辑器里已经解决，可以刷新状态"
           disabled={busy}
           onClick={() =>
@@ -277,7 +278,7 @@ export default function ConflictResolver({
             }, "已刷新冲突状态")
           }
         >
-          <RefreshCw size={15} className={busy ? "spin" : ""} />
+          <RefreshCw size={15} aria-hidden="true" className={busy ? "spin" : ""} />
         </button>
       </div>
 

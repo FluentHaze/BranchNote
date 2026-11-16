@@ -22,7 +22,8 @@
     "pack:win": "node scripts/pack.mjs win",
     "pack:mac": "node scripts/pack.mjs mac",
     "gitlab:demo": "node scripts/gitlab-demo.mjs",
-    "test:mr-ui": "electron scripts/mr-ui-test.cjs"
+    "test:mr-ui": "electron scripts/mr-ui-test.cjs",
+    "test:repository-status-ui": "node scripts/test-repository-status-ui.cjs"
   },
   "dependencies": {
     "electron-updater": "^6.8.11",

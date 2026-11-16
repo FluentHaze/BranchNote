@@ -12,7 +12,6 @@ import { useEffect, useRef, useState } from "react";
 import {
   Archive,
   ArrowDownToLine,
-  ChevronRight,
   CircleCheck,
   Copy,
   FlaskConical,
@@ -22,7 +21,6 @@ import {
   History,
   Pencil,
   Plus,
-  Search,
   RefreshCw,
   Trash2,
   X,
@@ -35,6 +33,9 @@ import {
   targetState,
   withStageState,
   markModified,
+  projectName,
+  id,
+  now,
   markStageMerged,
   parseStore,
   removeProject,
@@ -44,16 +45,29 @@ import {
   type Store,
 } from "./model";
 import * as storage from "./storage";
+import useGitOperation from "./useGitOperation";
+import RepositoryStatusPanel from "./RepositoryStatusPanel";
 
 type Filter = string;
+type ProjectTab = "repository" | "tracking";
+const projectTabsStorageKey = "branchnote-project-tabs";
+
+function loadProjectTabs(): Record<string, ProjectTab> {
+  try {
+    const value: unknown = JSON.parse(localStorage.getItem(projectTabsStorageKey) || "{}");
+    if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+    return Object.fromEntries(Object.entries(value).filter(([, tab]) => tab === "repository" || tab === "tracking")) as Record<string, ProjectTab>;
+  } catch { return {}; }
+}
 
 export default function App() {
   const [store, setStore] = useState<Store>(blankStore);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
   const [busy, setBusy] = useState(false);
+  const gitOperation = useGitOperation();
   const [view, setView] = useState<View>({ kind: "settings" });
-  const [query, setQuery] = useState("");
+  const [projectTabs, setProjectTabs] = useState<Record<string, ProjectTab>>(loadProjectTabs);
   const [repositoryProjectId, setRepositoryProjectId] = useState<string | null>(
     null,
   );
@@ -61,6 +75,7 @@ export default function App() {
     projectId: string;
     branchIds: string[];
     stage: Stage;
+    remoteSource?: { remote: string; branch: string };
   } | null>(null);
   const [filter, setFilter] = useState<Filter>("all");
   const [editor, setEditor] = useState<Editor | null>(null);
@@ -75,7 +90,6 @@ export default function App() {
   const [fileError, setFileError] = useState("");
   const [selected, setSelected] = useState<string[]>([]);
   const restoreRef = useRef<HTMLInputElement>(null);
-  const searchRef = useRef<HTMLInputElement>(null);
   const writing = useRef(false);
   const canWrite = useRef(false);
   const refreshSeconds = store.mrRefreshSeconds ?? 30;
@@ -117,10 +131,6 @@ export default function App() {
           !document.querySelector("dialog[open], :popover-open")) {
         setSelected([]);
       }
-      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
-        event.preventDefault();
-        searchRef.current?.focus();
-      }
       if (
         (event.metaKey || event.ctrlKey) &&
         event.key.toLowerCase() === "n" &&
@@ -160,7 +170,6 @@ export default function App() {
   }
   function navigate(next: View) {
     setView(next);
-    setQuery("");
     setFilter("all");
     setSelected([]);
   }
@@ -202,9 +211,18 @@ export default function App() {
     view.kind === "project"
       ? store.projects.find((p) => p.id === view.id)
       : undefined;
+  const projectTab: ProjectTab = project ? projectTabs[project.id] || "repository" : "repository";
+  const selectProjectTab = (tab: ProjectTab) => {
+    if (!project) return;
+    setProjectTabs(current => {
+      const next = {...current, [project.id]: tab};
+      localStorage.setItem(projectTabsStorageKey, JSON.stringify(next));
+      return next;
+    });
+  };
   refreshProject.current = async (manual = false) => {
     const api = window.branchNote;
-    if (!project || !api?.syncMergeRequests || syncing.current || writing.current || !canWrite.current) return;
+    if (!project || !api?.syncMergeRequests || syncing.current || writing.current || !canWrite.current || gitOperation) return;
     const snapshot = latestStore.current;
     const tracked = snapshot.branches.filter(branch => branch.projectId === project.id).flatMap(branch =>
       projectTargets(project).flatMap(target => {
@@ -221,7 +239,8 @@ export default function App() {
     setSyncBusy(true);
     try {
       const [repositoryResult, mrResult] = await Promise.allSettled([
-        repositoryPath ? api.fetchRepository(repositoryPath) : Promise.resolve(null),
+        // 自动轮询只同步 MR。Fetch 会占用全局 Git 操作并让工作区重新读取，改为仅在用户手动刷新时执行。
+        manual && repositoryPath ? api.fetchRepository(repositoryPath) : Promise.resolve(null),
         tracked.length ? api.syncMergeRequests(tracked.map(item => item.mr.url)) : Promise.resolve([]),
       ]);
       const results = mrResult.status === "fulfilled" ? mrResult.value : [];
@@ -304,13 +323,9 @@ export default function App() {
   );
   const visible = scope.filter(
     (b) =>
-      (!query ||
-        `${b.name} ${b.description} ${b.note}`
-          .toLowerCase()
-          .includes(query.toLowerCase())) &&
-      (filter === "all" ||
+      filter === "all" ||
         (filter.startsWith("pending:") && !targetState(b, filter.slice(8)).mergedAt) ||
-        (filter === "done" && !!project && projectTargets(project).length > 0 && projectTargets(project).every(target => !!targetState(b, target.id).mergedAt))),
+        (filter === "done" && !!project && projectTargets(project).length > 0 && projectTargets(project).every(target => !!targetState(b, target.id).mergedAt)),
 
   );
 
@@ -320,7 +335,7 @@ export default function App() {
     : false;
   // 目标分支栏展示当前项目
   const targetProject = project && !project.archived ? project : undefined;
-  const title = project?.name || "数据与设置";
+  const title = project ? projectName(project) : "数据与设置";
   const selectedVisible = selected.filter((value) =>
     visible.some((b) => b.id === value),
   );
@@ -385,28 +400,18 @@ export default function App() {
 
       <div className="main-shell">
         <header className="toolbar">
-          <div className="breadcrumb">
-            项目
-            <ChevronRight size={13} />
-            <span>{view.kind === "settings" ? "数据与设置" : "功能分支"}</span>
-          </div>
-          <div className="toolbar-actions">
-            <label className="search">
-              <Search size={16} />
-              <input
-                ref={searchRef}
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder="搜索分支或功能…"
-                aria-label="搜索分支或功能"
-              />
-              <kbd>⌘ K / Ctrl K</kbd>
-            </label>
-            <button className="primary compact" onClick={openPicker}>
-              <GitBranch size={16} />
-              从仓库添加分支
-            </button>
-          </div>
+          {project ? <>
+            <div className="toolbar-project">
+              <span>仓库项目</span>
+              <strong>{projectName(project)}</strong>
+              {project.note && <small>{project.note}</small>}
+            </div>
+            <div className="project-summary-actions">
+              <button className="secondary" onClick={() => setEditor({ kind: "project", value: project })}><Pencil size={15} />编辑项目</button>
+              <button className="secondary" disabled={busy} title={project.archived ? "取消归档" : "归档项目（保留全部记录）"} onClick={() => void commit({...store, projects: store.projects.map(item => item.id === project.id ? {...item, archived: !item.archived} : item)})}><Archive size={15} />{project.archived ? "取消归档" : "归档"}</button>
+              <button className="secondary danger" disabled={busy} onClick={() => setDeletingProject(project)}><Trash2 size={15} />删除项目</button>
+            </div>
+          </> : <div className="toolbar-project"><span>BranchNote</span><strong>数据与设置</strong></div>}
         </header>
 
         <main id="content">
@@ -505,56 +510,79 @@ export default function App() {
               </section>
             </>
           ) : project ? (
-            <>
-              <div className="page-heading">
-                <div>
-                  <h1>{title}</h1>
-                  {project.note && <p>{project.note}</p>}
-                </div>
-                <div className="heading-actions">
-                  <button
-                    className="secondary"
-                    onClick={() => setEditor({ kind: "project", value: project })}
-                  >
-                    <Pencil size={15} />
-                    编辑项目
-                  </button>
-                  <button
-                    className="secondary"
-                    disabled={busy}
-                    title={project.archived ? "取消归档" : "归档项目（保留全部记录）"}
-                    onClick={() => {
-                      void commit({
-                        ...store,
-                        projects: store.projects.map((item) =>
-                          item.id === project.id
-                            ? { ...item, archived: !item.archived }
-                            : item,
-                        ),
-                      });
-                    }}
-                  >
-                    <Archive size={15} />
-                    {project.archived ? "取消归档" : "归档"}
-                  </button>
-                  <button className="secondary danger" disabled={busy} onClick={() => setDeletingProject(project)}>
-                    <Trash2 size={15} />
-                    删除项目
-                  </button>
-                </div>
+            <div className="project-page">
+              <div className="project-tabs" role="tablist" aria-label="项目工作区">
+                <button type="button" role="tab" aria-selected={projectTab === "repository"} className={projectTab === "repository" ? "active" : ""} onClick={() => selectProjectTab("repository")}>当前分支与工作区</button>
+                <button type="button" role="tab" aria-selected={projectTab === "tracking"} className={projectTab === "tracking" ? "active" : ""} onClick={() => selectProjectTab("tracking")}>分支跟进 <span>{scope.length}</span></button>
               </div>
 
-              {targetProject && (
-                <TargetBar
-                  key={targetProject.id}
-                  project={targetProject}
-                  store={store}
-                  commit={commit}
+              <div key={projectTab} className="project-tab-panel" data-tab={projectTab}>
+              {projectTab === "repository" && (
+                <section className="project-repository-section" role="tabpanel">
+                <RepositoryStatusPanel
+                  key={`${project.id}:${project.repositoryPath || ""}`}
+                  path={project.repositoryPath}
+                  inlineWorkspace
+                  onRequestMR={async target => {
+                  const current = latestStore.current;
+                  const owner = current.projects.find(item => item.id === project.id);
+                  if (!owner || owner.repositoryPath !== project.repositoryPath) throw new Error("项目仓库已变化，请重新打开");
+                  const targets = projectTargets(owner).filter(item => item.branch.startsWith(target.remote + "/") && item.branch !== `${target.remote}/${target.target}`);
+                  if (!targets.length) throw new Error("请先为此项目配置同一远程下不同于源分支的 MR 目标");
+                  let record = current.branches.find(branch => branch.projectId === project.id && branch.name === target.target);
+                  if (!record) {
+                    const repository = await window.branchNote!.readRepository(owner.repositoryPath!);
+                    const remoteRef = `${target.remote}/${target.target}`;
+                    const source = repository.branches.find(branch => branch.remoteRefs?.includes(remoteRef));
+                    if (!source) throw new Error("尚未读取到已推送源分支，请获取远程引用后重试");
+                    const timestamp = now();
+                    record = {id: id(), projectId: project.id, name: target.target, description: source.subject || target.target,
+                      note: `来自 ${remoteRef}`, testMergedAt: null, releaseMergedAt: null, createdAt: timestamp, updatedAt: timestamp};
+                    const latest = latestStore.current;
+                    if (!await commit({...latest, branches: [...latest.branches, record]}, "已为本次 MR 添加源分支记录")) throw new Error("保存源分支台账失败，请重试");
+                  }
+                  setSubmit({projectId: project.id, branchIds: [record.id], stage: targets[0].id, remoteSource: {remote: target.remote, branch: target.target}});
+                }}
+                  onCommitted={async result => {
+                  if (!result.branch) return;
+                  let next = latestStore.current;
+                  const owner = next.projects.find(item => item.id === project.id);
+                  if (owner?.repositoryPath !== project.repositoryPath) return;
+                  const repositoryPath = owner?.repositoryPath;
+                  if (!repositoryPath) return;
+                  const matching = next.branches.filter(branch => branch.projectId === project.id && branch.name === result.branch);
+                  if (!matching.length) return;
+                  const repository = await window.branchNote!.readRepository(repositoryPath);
+                  const latest = repository.branches.find(branch => branch.name === result.branch && branch.local);
+                  for (const branch of matching) {
+                    next = markModified(next, branch.id);
+                    if (latest) {
+                      next = {...next, branches: next.branches.map(item => item.id === branch.id ? {
+                        ...item,
+                        description: latest.subject || item.description,
+                        note: item.note.replace(/(最近提交 )[0-9a-f]+(?=$|[，,；;\s])/i, "$1" + latest.commit),
+                      } : item)};
+                    }
+                  }
+                  if (!await commit(next, "Git 提交完成，已更新同名分支的最新提交")) throw new Error("请重新标记同名分支有新修改");
+                  }}
                 />
+                </section>
               )}
-
-              <p className="picker-note" role="status">{syncNotice || ("最近提交与合并请求状态每 " + refreshLabel + "自动同步，也可手动刷新")}</p>
-              <section className="branch-section">
+              {projectTab === "tracking" && (
+                <section className="project-mr-workspace" role="tabpanel">
+                <div className="mr-workspace-topline">
+                {targetProject && (
+                  <TargetBar
+                    key={targetProject.id}
+                    project={targetProject}
+                    store={store}
+                    commit={commit}
+                  />
+                )}
+                  <button className="primary compact" disabled={project.archived} onClick={openPicker}><GitBranch size={16} />从仓库添加分支</button>
+                </div>
+                <div className="branch-section">
                 <div className="list-toolbar">
                   <div className="tabs" aria-label="状态筛选">
                     {(
@@ -578,9 +606,9 @@ export default function App() {
                     ))}
                   </div>
                   <div className="list-filters">
-                    <button className="secondary" disabled={syncBusy || busy} onClick={() => void refreshProject.current(true)} title={syncNotice || ("每 " + refreshLabel + "自动同步，也可手动刷新")}>
-                      <RefreshCw size={14} />
-                      {syncBusy ? "刷新中…" : "刷新"}
+                    <button className="secondary" aria-busy={syncBusy} disabled={syncBusy || busy || gitOperation !== null} onClick={() => void refreshProject.current(true)} title={gitOperation ? `正在${gitOperation}，请稍候` : syncNotice || ("每 " + refreshLabel + "自动同步，也可手动刷新合并请求") }>
+                      <RefreshCw size={14} aria-hidden="true" className={syncBusy ? "spin" : ""} />
+                      {syncBusy ? "刷新 MR 中…" : "刷新 MR"}
                     </button>
                     <span className="result-count">
                       {visible.length} 条记录
@@ -652,7 +680,6 @@ export default function App() {
                         className="secondary"
                         onClick={() => {
                           setFilter("all");
-                          setQuery("");
                         }}
                       >
                         清除筛选
@@ -683,9 +710,11 @@ export default function App() {
                     }
                   />
                 )}
+                </div>
               </section>
-
-            </>
+              )}
+              </div>
+            </div>
           ) : (
             <>
               <div className="page-heading">
@@ -771,6 +800,7 @@ export default function App() {
           project={store.projects.find((p) => p.id === submit.projectId)!}
           branchIds={submit.branchIds}
           initialStage={submit.stage}
+          initialRemoteSource={submit.remoteSource}
           store={store}
           commit={commit}
           copy={copy}

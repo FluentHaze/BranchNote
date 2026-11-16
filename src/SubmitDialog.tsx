@@ -4,6 +4,7 @@ import Modal from "./Modal";
 import Select from "./Select";
 import ConflictResolver from "./ConflictResolver";
 import HostsPanel from "./HostsPanel";
+import useGitOperation from "./useGitOperation";
 import { rememberedTarget, projectTargets, targetState, withStageState, withTarget, type Project, type Stage, type Store } from "./model";
 import type { MergeResult, MergeSession, Repository, PreflightResult, MRMetadata, MROptions } from "./storage";
 
@@ -17,7 +18,7 @@ interface Submission {
   checkedSource?: {ref: string; head: string};
   title?: string;
 }
-export default function SubmitDialog({ project, branchIds, initialStage, store, commit, copy, close, openSettings }: {
+export default function SubmitDialog({ project, branchIds, initialStage, store, commit, copy, close, openSettings, initialRemoteSource }: {
   project: Project;
   branchIds: string[];
   initialStage?: Stage;
@@ -26,8 +27,9 @@ export default function SubmitDialog({ project, branchIds, initialStage, store, 
   copy(text: string): Promise<void>;
   close(): void;
   openSettings?(): void;
+  initialRemoteSource?: { remote: string; branch: string };
 }) {
-  const destinations = projectTargets(project);
+  const destinations = projectTargets(project).filter(destination => !initialRemoteSource || destination.branch.startsWith(initialRemoteSource.remote + "/"));
   const initial = initialStage ?? destinations[0]?.id ?? "";
   const stageName = (key: Stage) => destinations.find(item => item.id === key)?.name || key;
   const [repository, setRepository] = useState<Repository | null>(null);
@@ -48,7 +50,9 @@ export default function SubmitDialog({ project, branchIds, initialStage, store, 
   const [configurationWarning, setConfigurationWarning] = useState("");
   const [mergeName, setMergeName] = useState(() => "mr/" + Date.now());
   const [resolveName, setResolveName] = useState(() => "resolve/" + Date.now());
-  const [busy, setBusy] = useState(false);
+  const [localBusy, setBusy] = useState(false);
+  const gitOperation = useGitOperation();
+  const busy = localBusy || gitOperation !== null;
   const [step, setStep] = useState("");
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
@@ -63,6 +67,7 @@ export default function SubmitDialog({ project, branchIds, initialStage, store, 
   const path = project.repositoryPath || "";
   const selection = store.branches.filter(b => branchIds.includes(b.id));
   const options = [...new Set((repository?.branches || []).flatMap(b => b.remoteRefs?.length ? b.remoteRefs : b.remoteRef ? [b.remoteRef] : []))]
+    .filter(value => !initialRemoteSource || value.startsWith(initialRemoteSource.remote + "/"))
     .map(value => ({ value, label: value }));
   const metadataRemote = repository?.remotes.find(remote => target.startsWith(remote + "/")) || "";
 
@@ -209,7 +214,13 @@ export default function SubmitDialog({ project, branchIds, initialStage, store, 
       if (branch.name === target.slice(remote.length + 1)) {
         setError(`功能分支不能与 ${requestKind} 目标分支相同`); return;
       }
-      sources.push(info.local && !(info.behind > 0 && !info.ahead) ? info.name : info.remoteRef!);
+      if (initialRemoteSource) {
+        const remoteRef = `${initialRemoteSource.remote}/${initialRemoteSource.branch}`;
+        if (branch.name !== initialRemoteSource.branch || !info.remoteRefs?.includes(remoteRef)) {
+          setError("已推送源引用尚未获取，请获取远程引用后重新提交"); return;
+        }
+        sources.push(remoteRef);
+      } else sources.push(info.local && !(info.behind > 0 && !info.ahead) ? info.name : info.remoteRef!);
     }
     const source = mergeName.trim() || "mr/" + Date.now();
     const plan: Submission = { source, target, remote, names: sources, stage };
@@ -305,11 +316,13 @@ export default function SubmitDialog({ project, branchIds, initialStage, store, 
   return (
     <Modal title={conflict ? `解决冲突后提交 ${requestKind}` : mr ? `${requestKind} 已提交` : `提交${stageName(stage)} ${requestKind}`} close={() => { if (!busy) close(); }} wide footer={footer}>
       <div className="repository-body submit-dialog-body" aria-busy={busy}>
+        {gitOperation && <p className="picker-note" role="status">正在{gitOperation}，请稍候</p>}
         {error && <p className="form-error" role="alert">{error}</p>}
         {notice && <p className="warning-panel" role="status">{notice}</p>}
         {configurationWarning && <p className="warning-panel" role="status">{configurationWarning}</p>}
         {step && <p className="repository-loading" role="status">{step}</p>}
         {!window.branchNote && <p className="warning-panel">请在桌面应用中关联 Git 仓库并提交合并请求。</p>}
+        {initialRemoteSource && <p className="picker-note">本次已推送源：{initialRemoteSource.remote}/{initialRemoteSource.branch}。目标限定为同一远程，仍会执行原有冲突预检。</p>}
         {!mr && (
           <details className="submit-credentials">
             <summary>账号与令牌 · 配置 GitLab / GitHub</summary>
@@ -365,8 +378,8 @@ export default function SubmitDialog({ project, branchIds, initialStage, store, 
               {!mr && pageUrl && <button className="secondary" disabled={busy} onClick={() => void window.branchNote?.openUrl(pageUrl)}>打开 {requestKind} 创建页</button>}
               {!mr && openSettings && <button className="secondary" disabled={busy} onClick={openSettings}>配置令牌</button>}
               {(!mr || error || configurationWarning) && (
-                <button className="secondary" disabled={busy} onClick={() => void publish(submission)}>
-                  <RefreshCw size={15} />
+                <button className="secondary" aria-busy={busy} disabled={busy} onClick={() => void publish(submission)}>
+                  <RefreshCw size={15} aria-hidden="true" className={busy ? "spin" : ""} />
                   {configurationWarning ? "重试保存配置" : mr ? "重新关联记录" : `重试提交 ${requestKind}`}
                 </button>
               )}

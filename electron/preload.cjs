@@ -1,6 +1,12 @@
 const { contextBridge, ipcRenderer } = require("electron");
 contextBridge.exposeInMainWorld("branchNote", {
   platform: process.platform,
+  getGitOperation: () => ipcRenderer.invoke("repository:operation"),
+  subscribeGitOperation: (callback) => {
+    const listener = (_, operation) => callback(operation);
+    ipcRenderer.on("repository:operation", listener);
+    return () => ipcRenderer.removeListener("repository:operation", listener);
+  },
   subscribeTrayAction: (callback) => {
     const listener = (_, action) => callback(action);
     ipcRenderer.on("tray:action", listener);
@@ -16,6 +22,17 @@ contextBridge.exposeInMainWorld("branchNote", {
   pickRepository: () => ipcRenderer.invoke("repository:pick"),
   readRepository: (directory) =>
     ipcRenderer.invoke("repository:read", directory),
+  readRepositoryStatus: (directory) =>
+    ipcRenderer.invoke("repository:status", directory),
+  readGitWorkflow: (directory) => ipcRenderer.invoke("repository:git-workflow", directory),
+  createLocalBranch: (directory, name, source, checkout) => ipcRenderer.invoke("repository:create-branch", { directory, name, source, checkout }),
+  switchLocalBranch: (directory, ref) => ipcRenderer.invoke("repository:switch-branch", { directory, ref }),
+  syncCurrentBranch: (directory, action, target) => ipcRenderer.invoke("repository:sync-branch", { directory, action, target }),
+  readWorkspace: (directory) => ipcRenderer.invoke("repository:workspace", directory),
+  readWorkspaceDiff: (directory, file, group) => ipcRenderer.invoke("repository:workspace-diff", { directory, file, group }),
+  updateWorkspaceIndex: (directory, action, files) => ipcRenderer.invoke("repository:workspace-index", { directory, action, files }),
+  commitWorkspace: (directory, title, body) => ipcRenderer.invoke("repository:workspace-commit", { directory, title, body }),
+  commitWorkspaceFiles: (directory, title, body, files) => ipcRenderer.invoke("repository:workspace-commit-files", { directory, title, body, files }),
   fetchRepository: (directory) =>
     ipcRenderer.invoke("repository:fetch", directory),
   prepareMerge: (directory, target, sources, resolveBranch, options) =>

@@ -24,8 +24,9 @@ if (process.type === "renderer") {
   contextBridge.exposeInMainWorld("branchNote", {
     read:async()=>JSON.stringify(data), write:async raw=>{data=JSON.parse(raw);},
     subscribeTrayAction:()=>()=>{},
+    subscribeGitOperation:()=>()=>{}, getGitOperation:async()=>null,
     subscribeUpdate:()=>()=>{}, getUpdate:async()=>({status:"manual"}),
-    requestProvider:async()=>"gitlab", readRepository:async()=>repo, mergeState:async()=>({session:null, unmerged:[]}),
+    requestProvider:async()=>"gitlab", readRepository:async()=>repo, readRepositoryStatus:async()=>({head:"branch",branch:"main",commit:"fixture",upstream:"origin/main",ahead:0,behind:0,clean:true,staged:false,unstaged:false,untracked:false,conflicts:false,operations:[]}), mergeState:async()=>({session:null, unmerged:[]}),
     fetchRepository:async directory=>{
       calls.push(["fetch",directory]);
       const branch = {name:"release/new", local:false, remoteRef:"origin/release/new"};
@@ -61,6 +62,8 @@ if (process.type === "renderer") {
       };
       const clickText = text=>evaluate("Array.from(document.querySelectorAll('button')).find(b=>b.textContent.trim()==="+JSON.stringify(text)+").click()");
       const setInput=async(selector,value)=>evaluate("(()=>{const e=document.querySelector("+JSON.stringify(selector)+");Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(e,"+JSON.stringify(value)+");e.dispatchEvent(new Event('input',{bubbles:true}));})()");
+      await waitFor("document.querySelector('.project-tabs [role=tab]') !== null");
+      await evaluate("[...document.querySelectorAll('.project-tabs [role=tab]')].find(button => button.textContent.includes('分支跟进')).click()");
       await waitFor("!!document.querySelector('table')");
       await evaluate("document.querySelector('.target-chip').click()");
       await waitFor("document.querySelector('.target-form .select-trigger:enabled') !== null");

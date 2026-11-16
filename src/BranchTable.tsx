@@ -58,10 +58,8 @@ export default function BranchTable({
   useEffect(() => {
     if (!menu) return;
     const close = () => setMenu(null);
-    document.addEventListener("scroll", close, true);
     window.addEventListener("resize", close);
     return () => {
-      document.removeEventListener("scroll", close, true);
       window.removeEventListener("resize", close);
     };
   }, [menu]);
@@ -220,9 +218,10 @@ export default function BranchTable({
                           }
                           const rect =
                             event.currentTarget.getBoundingClientRect();
+                          const maxHeight = Math.min(480, window.innerHeight * .65);
                           setMenu({
                             branch,
-                            top: rect.bottom + 6,
+                            top: Math.max(12, Math.min(rect.bottom + 6, window.innerHeight - maxHeight - 12)),
                             right: window.innerWidth - rect.right,
                           });
                         }}

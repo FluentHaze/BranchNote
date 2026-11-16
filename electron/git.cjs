@@ -4,6 +4,7 @@ const path = require("node:path");
 const fs = require("node:fs/promises");
 const { randomUUID } = require("node:crypto");
 const { tmpdir } = require("node:os");
+const { isUtf8 } = require("node:buffer");
 
 const run = promisify(execFile);
 const MAX_BUFFER = 32 * 1024 * 1024;
@@ -89,6 +90,315 @@ async function repositoryRoot(directory) {
       throw new Error("所选文件夹不属于 Git 仓库，请重新选择");
     throw new Error(describe(error));
   }
+}
+
+// porcelain v2 的头信息兼容尚无提交及 detached HEAD，不依赖分支列表推断。
+async function readRepositoryStatus(directory) {
+  const root = await repositoryRoot(directory);
+  try {
+    const { stdout: output } = await exec(root, ["status", "--porcelain=v2", "--branch", "-z", "--untracked-files=normal"], {
+      env: { ...process.env, GIT_OPTIONAL_LOCKS: "0" },
+    });
+    const entries = output.split("\0").filter(Boolean);
+    const headers = entries.filter(entry => entry.startsWith("# "));
+    const field = name => headers.find(entry => entry.startsWith(`# ${name} `))?.slice(name.length + 3) || "";
+    const oid = field("branch.oid");
+    const branch = field("branch.head");
+    const counts = /^\+(\d+) -(\d+)$/.exec(field("branch.ab"));
+    let staged = false;
+    let unstaged = false;
+    let untracked = false;
+    let conflicts = false;
+    for (let index = 0; index < entries.length; index++) {
+      const entry = entries[index];
+      if (entry.startsWith("? ")) untracked = true;
+      if (entry.startsWith("u ")) conflicts = true;
+      if (/^[12u] /.test(entry)) {
+        const xy = entry.slice(2, 4);
+        staged ||= xy[0] !== ".";
+        unstaged ||= xy[1] !== "." || entry.slice(5, 9).match(/[MU]/) !== null;
+      }
+      // 重命名记录后紧跟原路径；它不是另一条状态记录。
+      if (entry.startsWith("2 ")) index++;
+    }
+    const operations = [];
+    for (const [operation, markers] of [
+      ["rebase", ["rebase-merge", "rebase-apply"]],
+      ["merge", ["MERGE_HEAD"]],
+      ["cherry-pick", ["CHERRY_PICK_HEAD"]],
+      ["revert", ["REVERT_HEAD"]],
+      ["sequencer", ["sequencer"]],
+    ]) {
+      for (const marker of markers) {
+        if (await exists(await gitPath(root, marker))) {
+          operations.push(operation);
+          break;
+        }
+      }
+    }
+    return {
+      path: root,
+      head: oid === "(initial)" ? "unborn" : branch === "(detached)" ? "detached" : "branch",
+      branch: branch === "(detached)" ? null : branch,
+      commit: oid === "(initial)" ? null : oid,
+      upstream: field("branch.upstream") || null,
+      ahead: counts ? Number(counts[1]) : 0,
+      behind: counts ? Number(counts[2]) : 0,
+      staged, unstaged, untracked, conflicts,
+      clean: !staged && !unstaged && !untracked && !conflicts,
+      operations,
+    };
+  } catch (error) {
+    throw new Error(`无法读取仓库状态：${describe(error)}`);
+  }
+}
+
+// -z 保留中文、空格和换行路径；不把重命名的原路径当作状态记录。
+async function readWorkspace(directory) {
+  const root = await repositoryRoot(directory);
+  const { stdout } = await exec(root, ["status", "--porcelain=v2", "-z", "--untracked-files=all", "--ignore-submodules=none"], {
+    env: { ...process.env, GIT_OPTIONAL_LOCKS: "0" },
+  });
+  const records = stdout.split("\0");
+  const files = [];
+  for (let index = 0; index < records.length; index++) {
+    const entry = records[index];
+    if (entry.startsWith("? ")) {
+      files.push({ path: entry.slice(2), group: "untracked", status: "?", originalPath: null, submodule: false });
+      continue;
+    }
+    const match = /^([12u]) (\S+) (\S+) /.exec(entry);
+    if (!match) continue;
+    const [, kind, xy, sub] = match;
+    const fieldCount = kind === "1" ? 8 : kind === "2" ? 9 : 10;
+    let start = 0;
+    for (let field = 0; field < fieldCount; field++) start = entry.indexOf(" ", start) + 1;
+    const file = entry.slice(start);
+    const originalPath = kind === "2" ? records[++index] : null;
+    if (kind === "u") {
+      files.push({ path: file, group: "unstaged", status: "U", originalPath: null, submodule: sub.startsWith("S") });
+      continue;
+    }
+    for (const [group, code] of [["staged", xy[0]], ["unstaged", xy[1] === "." && /[MU]/.test(sub) ? "M" : xy[1]]]) {
+      if (code !== ".") files.push({ path: file, group, status: code, originalPath: /[RC]/.test(code) ? originalPath : null, submodule: sub.startsWith("S") });
+    }
+  }
+  return { path: root, files };
+}
+
+const PREVIEW_BYTES = 512 * 1024;
+const PREVIEW_LINES = 4000;
+async function readWorkspaceDiff(directory, file, group) {
+  if (typeof file !== "string" || !["staged", "unstaged", "untracked"].includes(group))
+    throw new Error("请选择有效的工作区文件及分组");
+  const workspace = await readWorkspace(directory);
+  const item = workspace.files.find(item => item.path === file && item.group === group);
+  if (!item) throw new Error("文件状态已变化，请刷新工作区后重新选择");
+  const result = { path: file, group, kind: "text", text: "", message: "" };
+  if (item.submodule) return { ...result, kind: "submodule", message: "子模块状态已变化，首期不进入子模块查看或操作" };
+  if (item.status === "U") return { ...result, kind: "conflict", message: "文件存在未解决冲突，请通过原 MR 冲突入口或外部 Git 工具处理" };
+  let text;
+  try {
+    if (group === "untracked") {
+      // file 已与 Git 返回的仓库内路径精确匹配，不再套用冲突文件的路径规则。
+      const absolute = path.join(workspace.path, item.path);
+      if ((await fs.lstat(absolute)).isSymbolicLink())
+        return { ...result, kind: "unsupported", message: "符号链接不读取目标文件内容" };
+      const handle = await fs.open(absolute, "r");
+      let bytes;
+      try {
+        const buffer = Buffer.alloc(PREVIEW_BYTES + 1);
+        const { bytesRead } = await handle.read(buffer, 0, buffer.length, 0);
+        bytes = buffer.subarray(0, bytesRead);
+      } finally { await handle.close(); }
+      if (bytes.length > PREVIEW_BYTES) return { ...result, kind: "limited", message: "文件超过 512 KiB，请在外部编辑器查看" };
+      if (bytes.includes(0) || !isUtf8(bytes)) return { ...result, kind: "binary", message: "二进制或非 UTF-8 文件不提供文本预览" };
+      const content = bytes.toString("utf8");
+      const lines = content ? content.replace(/\n$/, "").split("\n") : [];
+      if (lines.length > PREVIEW_LINES) return { ...result, kind: "limited", message: "预览超过 4000 行，请在外部编辑器查看" };
+      text = lines.length ? `--- /dev/null\n+++ b/${file}\n@@ -0,0 +1,${lines.length} @@\n${lines.map(line => "+" + line).join("\n")}\n${content.endsWith("\n") ? "" : "\\ No newline at end of file\n"}` : "";
+    } else {
+      const paths = item.originalPath ? [item.originalPath, file] : [file];
+      const output = await exec(workspace.path, ["diff", ...(group === "staged" ? ["--cached"] : []),
+        "--no-ext-diff", "--no-textconv", "--no-color", "--unified=3", "--", ...paths], {
+        maxBuffer: PREVIEW_BYTES,
+        encoding: "buffer",
+        env: { ...process.env, GIT_OPTIONAL_LOCKS: "0", GIT_LITERAL_PATHSPECS: "1" },
+      });
+      if (!isUtf8(output.stdout)) return { ...result, kind: "binary", message: "非 UTF-8 文件不提供文本 diff" };
+      text = output.stdout.toString("utf8");
+      if (/^Binary files .* differ$/m.test(text) || text.includes("\0"))
+        return { ...result, kind: "binary", message: "二进制文件不提供文本 diff" };
+    }
+  } catch (error) {
+    if (error.code === "ERR_CHILD_PROCESS_STDIO_MAXBUFFER")
+      return { ...result, kind: "limited", message: "差异超过 512 KiB，请在外部 Git 工具查看" };
+    throw new Error(`无法读取文件差异：${describe(error)}`);
+  }
+  if (Buffer.byteLength(text, "utf8") > PREVIEW_BYTES)
+    return { ...result, kind: "limited", message: "差异超过 512 KiB，请在外部 Git 工具查看" };
+  if (text.split("\n").length > PREVIEW_LINES)
+    return { ...result, kind: "limited", message: "差异超过 4000 行，请在外部 Git 工具查看" };
+  return { ...result, kind: text ? "text" : "empty", text, message: text ? "" : "没有可显示的文本差异（文件可能为空或已在外部更新）" };
+}
+
+async function workspaceWriteStatus(directory) {
+  const status = await readRepositoryStatus(directory);
+  if (status.operations.length || status.conflicts)
+    throw new Error("仓库有未完成的 Git 操作或冲突，请先完成或中止原操作");
+  return status;
+}
+
+async function updateWorkspaceIndex(directory, action, files) {
+  if (!["stage", "unstage"].includes(action) || (files !== null && (!Array.isArray(files) || !files.length || !files.every(file => typeof file === "string" && file))))
+    throw new Error("请选择有效的文件及暂存操作");
+  const status = await workspaceWriteStatus(directory);
+  const workspace = await readWorkspace(status.path);
+  const candidates = workspace.files.filter(file => action === "stage" ? file.group !== "staged" : file.group === "staged");
+  const selected = files === null ? candidates : files.map(file => {
+    const item = candidates.find(item => item.path === file);
+    if (!item) throw new Error(`文件状态已变化，请刷新后重试：${file}`);
+    return item;
+  });
+  if (!selected.length) throw new Error(action === "stage" ? "没有可暂存的文件" : "没有已暂存的文件");
+  if (selected.some(file => file.submodule)) throw new Error("子模块请在外部 Git 工具中暂存或取消暂存");
+  const paths = [...new Set(selected.flatMap(file => file.originalPath ? [file.originalPath, file.path] : [file.path]))];
+  try {
+    const args = action === "stage" ? ["add", "-A", "--", ...paths]
+      : status.head === "unborn" ? ["rm", "--cached", "-r", "-f", "--ignore-unmatch", "--", ...paths]
+      : ["reset", "--quiet", "HEAD", "--", ...paths];
+    await exec(status.path, args, { env: { ...process.env, GIT_LITERAL_PATHSPECS: "1" } });
+  } catch (error) { throw new Error(`暂存区操作失败：${describe(error)}`); }
+}
+
+async function commitWorkspace(directory, title, body) {
+  if (typeof title !== "string" || !title.trim() || /[\r\n\0]/.test(title) || typeof body !== "string" || body.includes("\0"))
+    throw new Error("请填写单行提交标题，正文不能包含空字符");
+  const status = await workspaceWriteStatus(directory);
+  if (status.head === "detached") throw new Error("当前为分离 HEAD，请先在外部 Git 工具中切回分支再提交");
+  if (!status.staged) throw new Error("暂存区为空，请先暂存需要提交的文件");
+  try {
+    await exec(status.path, ["-c", "user.useConfigOnly=true", "var", "GIT_AUTHOR_IDENT"]);
+    await exec(status.path, ["-c", "user.useConfigOnly=true", "var", "GIT_COMMITTER_IDENT"]);
+  } catch {
+    throw new Error("缺少有效的 Git 提交身份。请在仓库终端配置 git config user.name 和 git config user.email 后重试；应用不会修改全局配置");
+  }
+  try {
+    await exec(status.path, ["commit", "-m", title.trim(), ...(body.trim() ? ["-m", body.trim()] : [])]);
+  } catch (error) { throw new Error(`提交失败：${describe(error)}`); }
+  return { branch: status.branch, commit: await git(status.path, ["rev-parse", "HEAD"]) };
+}
+
+async function commitWorkspaceFiles(directory, title, body, files) {
+  if (typeof title !== "string" || !title.trim() || /[\r\n\0]/.test(title) || typeof body !== "string" || body.includes("\0") || !Array.isArray(files) || !files.length || !files.every(file => typeof file === "string" && file))
+    throw new Error("请填写单行提交标题并选择需要提交的文件");
+  const status = await workspaceWriteStatus(directory);
+  if (status.head === "detached") throw new Error("当前为分离 HEAD，请先在外部 Git 工具中切回分支再提交");
+  const workspace = await readWorkspace(status.path);
+  const selected = [...new Set(files)].map(file => {
+    const item = workspace.files.find(item => item.path === file);
+    if (!item) throw new Error(`文件状态已变化，请刷新后重新选择：${file}`);
+    return item;
+  });
+  if (selected.some(file => file.submodule)) throw new Error("子模块请在外部 Git 工具中提交");
+  try {
+    await exec(status.path, ["-c", "user.useConfigOnly=true", "var", "GIT_AUTHOR_IDENT"]);
+    await exec(status.path, ["-c", "user.useConfigOnly=true", "var", "GIT_COMMITTER_IDENT"]);
+  } catch {
+    throw new Error("缺少有效的 Git 提交身份。请在仓库终端配置 git config user.name 和 git config user.email 后重试；应用不会修改全局配置");
+  }
+  const paths = [...new Set(selected.flatMap(file => file.originalPath ? [file.originalPath, file.path] : [file.path]))];
+  try {
+    await exec(status.path, ["add", "-A", "--", ...paths], { env: { ...process.env, GIT_LITERAL_PATHSPECS: "1" } });
+    await exec(status.path, ["commit", "--only", "-m", title.trim(), ...(body.trim() ? ["-m", body.trim()] : []), "--", ...paths], { env: { ...process.env, GIT_LITERAL_PATHSPECS: "1" } });
+  } catch (error) { throw new Error(`提交所选文件失败：${describe(error)}`); }
+  return { branch: status.branch, commit: await git(status.path, ["rev-parse", "HEAD"]) };
+}
+
+async function readGitWorkflow(directory) {
+  const repository = await readRepository(directory);
+  const status = await readRepositoryStatus(repository.path);
+  let upstream = null;
+  if (status.head === "branch") {
+    const fields = await git(repository.path, ["for-each-ref", "--format=%(upstream:remotename)%00%(upstream:remoteref)", `refs/heads/${status.branch}`]);
+    const [remote, ref] = fields.split("\0");
+    if (remote && ref?.startsWith("refs/heads/")) upstream = { remote, branch: ref.slice("refs/heads/".length) };
+  }
+  return { repository, status, upstream };
+}
+
+async function createLocalBranch(directory, name, source, checkout) {
+  if (typeof name !== "string" || !name || name.startsWith("-") || typeof source !== "string" || typeof checkout !== "boolean")
+    throw new Error("请填写合法的分支名称并选择起点");
+  const status = await workspaceWriteStatus(directory);
+  if (checkout && !status.clean) throw new Error("工作区或暂存区不干净，请先提交改动后再切换；应用不会自动 Stash 或丢弃");
+  try { await exec(status.path, ["check-ref-format", `refs/heads/${name}`]); }
+  catch { throw new Error("分支名称不合法，请检查空格、特殊字符或路径格式"); }
+  const workflow = await readGitWorkflow(status.path);
+  const refs = workflow.repository.branches.flatMap(branch => [
+    ...(branch.local ? [`refs/heads/${branch.name}`] : []),
+    ...(branch.remoteRefs || []).map(ref => `refs/remotes/${ref}`),
+  ]);
+  if (source !== "HEAD" && !refs.includes(source)) throw new Error("分支起点已失效，请刷新后重新选择");
+  if (status.head === "unborn" && source === "HEAD") throw new Error("仓库尚无首次提交，请先提交或选择有效的远程引用作为起点");
+  const locals = workflow.repository.branches.filter(branch => branch.local).map(branch => branch.name);
+  if (locals.some(branch => branch === name || branch.startsWith(name + "/") || name.startsWith(branch + "/")))
+    throw new Error("分支已存在，或名称与现有分支存在路径前缀冲突");
+  try {
+    const tracking = source.startsWith("refs/remotes/") ? ["--track"] : ["--no-track"];
+    if (checkout) await exec(status.path, ["switch", ...tracking, "-c", name, source]);
+    else await exec(status.path, ["branch", ...tracking, "--", name, source]);
+  } catch (error) { throw new Error(`创建分支失败：${describe(error)}`); }
+}
+
+async function switchLocalBranch(directory, ref) {
+  if (typeof ref !== "string") throw new Error("请选择要切换的分支");
+  const workflow = await readGitWorkflow(directory);
+  await assertReady(workflow.repository.path);
+  const local = workflow.repository.branches.find(branch => branch.local && `refs/heads/${branch.name}` === ref);
+  const remoteRef = workflow.repository.branches.flatMap(branch => branch.remoteRefs || []).find(remote => `refs/remotes/${remote}` === ref);
+  try {
+    if (local) await exec(workflow.repository.path, ["switch", "--no-guess", "--", local.name]);
+    else if (remoteRef) {
+      const remote = workflow.repository.remotes.find(name => remoteRef.startsWith(name + "/"));
+      const name = remoteRef.slice(remote.length + 1);
+      if (workflow.repository.branches.some(branch => branch.local && (branch.name === name || branch.name.startsWith(name + "/") || name.startsWith(branch.name + "/"))))
+        throw new Error("同名本地分支已存在或有前缀冲突，请切换该本地分支，或从此远程引用创建不同名称的分支");
+      await exec(workflow.repository.path, ["switch", "--track", "-c", name, ref]);
+    } else throw new Error("分支已失效，请刷新后重新选择");
+  } catch (error) { throw new Error(`切换分支失败：${describe(error)}`); }
+}
+
+async function syncCurrentBranch(directory, action, expected) {
+  if (!["pull", "push"].includes(action) || !expected || typeof expected.branch !== "string" || typeof expected.remote !== "string" || typeof expected.target !== "string")
+    throw new Error("同步参数不完整，请刷新后核对分支和远程");
+  const workflow = await readGitWorkflow(directory);
+  const status = await workspaceWriteStatus(workflow.repository.path);
+  if (status.head !== "branch" || status.branch !== expected.branch) throw new Error("当前分支已变化或尚无提交，请刷新后重新确认");
+  if (!workflow.repository.remotes.includes(expected.remote)) throw new Error("请选择已配置的远程仓库");
+  const upstream = workflow.upstream;
+  if (upstream ? upstream.remote !== expected.remote || upstream.branch !== expected.target : expected.target !== status.branch)
+    throw new Error("上游或推送目标已变化，请刷新后核对");
+  if (action === "pull" && !upstream) throw new Error("当前分支尚无上游，请先推送并建立上游");
+  if (action === "pull" && !status.clean) throw new Error("工作区或暂存区不干净，请先提交改动后再拉取");
+  const root = status.path;
+  try {
+    if (action === "pull") {
+      await networkExec(root, ["fetch", "--no-tags", "--no-recurse-submodules", expected.remote, `refs/heads/${expected.target}`]);
+      const commit = await git(root, ["rev-parse", "FETCH_HEAD"]);
+      const current = await workspaceWriteStatus(root);
+      if (current.branch !== expected.branch || !current.clean) throw new Error("获取远程更新期间分支或工作区已变化，请刷新后重试");
+      await exec(root, ["merge", "--ff-only", commit]);
+    } else {
+      await networkExec(root, ["push", "--porcelain", "--no-follow-tags", ...(upstream ? [] : ["--set-upstream"]), expected.remote, `refs/heads/${status.branch}:refs/heads/${expected.target}`]);
+    }
+  } catch (error) {
+    const raw = String(error.stdout || "") + "\n" + String(error.stderr || error.message || "");
+    if (/non-fast-forward|fetch first|not possible to fast-forward|diverg/i.test(raw))
+      throw new Error(action === "pull" ? "本地与远程已分叉，无法快进拉取；请在外部 Git 工具中处理，不会自动合并或变基" : "远端已有新提交，普通推送被拒绝；请先获取更新并处理分叉，不会自动强制推送");
+    throw new Error(`${action === "pull" ? "拉取" : "推送"}失败：${describe(error)}`);
+  }
+  return { branch: status.branch, remote: expected.remote, target: expected.target };
 }
 
 // 返回统一的“分支”视图：本地分支与远程分支按短名合并成一条，各自保留提交信息
@@ -211,7 +521,7 @@ async function readRepository(directory) {
       path: root,
       current: [...locals.values()].find((item) => item.head === "*")?.short || "",
       defaultBranch,
-      remotes: [...remoteNames],
+      remotes: [...new Set([...remoteNames, ...Object.keys(remoteUrls)])],
       remoteUrls,
       user,
       branches,
@@ -227,11 +537,14 @@ async function fetchRepository(directory) {
   if (!before.remotes.length)
     throw new Error("这个仓库还没有配置远程仓库，没有可更新的分支");
   const errors = [];
+  const remoteResults = [];
   for (const remote of before.remotes) {
     try {
       await networkExec(before.path, ["fetch", remote, "--prune", "--no-tags"]);
+      remoteResults.push({ remote, success: true, message: "远程引用已更新" });
     } catch (error) {
       errors.push(`${remote}：${describe(error)}`);
+      remoteResults.push({ remote, success: false, message: describe(error) });
     }
   }
   const after = await readRepository(before.path);
@@ -254,7 +567,7 @@ async function fetchRepository(directory) {
     if (commit && !afterMap.get(name)) removed.push(name);
   if (errors.length && errors.length === before.remotes.length)
     throw new Error(`更新分支失败：${errors.join("；")}`);
-  return { repository: after, updated, added, removed, errors };
+  return { repository: after, updated, added, removed, errors, remoteResults };
 }
 
 async function gitPath(directory, name) {
@@ -292,22 +605,16 @@ async function clearSession(directory) {
 }
 
 async function assertReady(directory) {
-  if ((await git(directory, ["status", "--porcelain"])).trim())
+  const status = await readRepositoryStatus(directory);
+  if (status.operations.length) {
+    throw new Error(status.operations.every(operation => operation === "merge")
+      ? "仓库有尚未完成的合并；本应用的 MR 冲突会话可继续处理，其他合并请先在外部 Git 工具中完成或中止"
+      : "仓库有尚未完成的 Rebase、git am、Cherry-pick、Revert 或 Git 序列操作，请先在外部 Git 工具中完成或中止后再试");
+  }
+  if (!status.clean)
     throw new Error(
       "工作区存在未提交或未跟踪的文件，请先提交，或使用 stash 保存改动后重试",
     );
-  for (const name of [
-    "MERGE_HEAD",
-    "CHERRY_PICK_HEAD",
-    "REVERT_HEAD",
-    "rebase-merge",
-    "rebase-apply",
-  ]) {
-    if (await exists(await gitPath(directory, name)))
-      throw new Error(
-        "仓库有尚未完成的合并、变基或拣选操作，请先在应用里继续解决冲突，或中止后再试",
-      );
-  }
 }
 
 const shortName = (ref) =>
@@ -1239,6 +1546,16 @@ async function pushBranch(directory, branch, remote, checkedSource) {
 }
 
 module.exports = {
+  readGitWorkflow,
+  createLocalBranch,
+  switchLocalBranch,
+  syncCurrentBranch,
+  updateWorkspaceIndex,
+  commitWorkspace,
+  commitWorkspaceFiles,
+  readWorkspace,
+  readWorkspaceDiff,
+  readRepositoryStatus,
   UnsafeRepositoryError,
   trustRepository,
   readRepository,

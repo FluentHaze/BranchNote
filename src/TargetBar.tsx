@@ -2,6 +2,7 @@ import { useEffect, useState, type CSSProperties } from "react";
 import { GitPullRequest, Pencil, Plus, RefreshCw, Trash2 } from "lucide-react";
 import Modal from "./Modal";
 import Select from "./Select";
+import useGitOperation from "./useGitOperation";
 import { id, projectTargets, type MRTarget, type Project, type Store } from "./model";
 
 const colors = ["#4263dc", "#2b8b83", "#8b5bb5", "#bd7833", "#b85475", "#66758d"];
@@ -13,7 +14,8 @@ export default function TargetBar({ project, store, commit }: {
   const {repositoryPath} = project;
   const [editing, setEditing] = useState(false);
   const [operation, setOperation] = useState<"read" | "refresh" | "save" | null>(null);
-  const busy = operation !== null;
+  const gitOperation = useGitOperation();
+  const busy = operation !== null || gitOperation !== null;
   const [refreshRequest, setRefreshRequest] = useState<{path: string} | null>(null);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
@@ -109,6 +111,7 @@ export default function TargetBar({ project, store, commit }: {
                 <button
                   type="button"
                   className="secondary"
+                  aria-busy={operation === "refresh"}
                   disabled={busy}
                   onClick={() => setRefreshRequest({path: repositoryPath})}
                 >

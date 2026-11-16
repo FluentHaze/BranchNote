@@ -7,8 +7,19 @@ const fs = require("node:fs/promises");
 const { execFile } = require("node:child_process");
 const { promisify } = require("node:util");
 const runApplication = promisify(execFile);
+const { createGitOperation } = require("./git-operation.cjs");
 const {
   readRepository,
+  readRepositoryStatus,
+  readGitWorkflow,
+  createLocalBranch,
+  switchLocalBranch,
+  syncCurrentBranch,
+  readWorkspace,
+  readWorkspaceDiff,
+  updateWorkspaceIndex,
+  commitWorkspace,
+  commitWorkspaceFiles,
   UnsafeRepositoryError,
   trustRepository,
   fetchRepository,
@@ -47,14 +58,19 @@ let tray;
 let trayMenuWindow;
 let quitting = false;
 let mergePlan;
-let merging = false;
+const gitOperation = createGitOperation(operation => {
+  for (const target of BrowserWindow.getAllWindows()) {
+    if (!target.isDestroyed()) target.webContents.send("repository:operation", operation);
+  }
+});
 const dataPath = () => path.join(app.getPath("userData"), "branchnote.json");
 
 const primaryInstance = app.requestSingleInstanceLock();
 if (!primaryInstance) app.quit();
 
 if (primaryInstance) app.whenReady().then(() => {
-  initializeUpdater({ app, BrowserWindow, ipcMain, shell, autoUpdater, fetchUpdate, canInstall: () => !merging });
+  initializeUpdater({ app, BrowserWindow, ipcMain, shell, autoUpdater, fetchUpdate, canInstall: () => !gitOperation.current() });
+  ipcMain.handle("repository:operation", () => gitOperation.current());
   // 页面目前使用浅色主题，原生标题栏和系统对话框与其保持一致。
   nativeTheme.themeSource = "light";
   ipcMain.handle("repository:pick", async () => {
@@ -85,13 +101,30 @@ if (primaryInstance) app.whenReady().then(() => {
   ipcMain.handle("repository:read", (_, directory) =>
     readRepository(directory),
   );
+  ipcMain.handle("repository:status", (_, directory) =>
+    readRepositoryStatus(directory),
+  );
+  ipcMain.handle("repository:workspace", (_, directory) => readWorkspace(directory));
+  ipcMain.handle("repository:git-workflow", (_, directory) => readGitWorkflow(directory));
+  ipcMain.handle("repository:create-branch", (_, { directory, name, source, checkout }) =>
+    gitOperation.run("创建分支", () => createLocalBranch(directory, name, source, checkout)));
+  ipcMain.handle("repository:switch-branch", (_, { directory, ref }) =>
+    gitOperation.run("切换分支", () => switchLocalBranch(directory, ref)));
+  ipcMain.handle("repository:sync-branch", (_, { directory, action, target }) =>
+    gitOperation.run(action === "pull" ? "快进拉取" : "推送当前分支", () => syncCurrentBranch(directory, action, target)));
+  ipcMain.handle("repository:workspace-diff", (_, { directory, file, group }) => readWorkspaceDiff(directory, file, group));
+  ipcMain.handle("repository:workspace-index", (_, { directory, action, files }) =>
+    gitOperation.run(action === "stage" ? "暂存文件" : "取消暂存", () => updateWorkspaceIndex(directory, action, files)));
+  ipcMain.handle("repository:workspace-commit", (_, { directory, title, body }) =>
+    gitOperation.run("提交暂存内容", () => commitWorkspace(directory, title, body)));
+  ipcMain.handle("repository:workspace-commit-files", (_, { directory, title, body, files }) =>
+    gitOperation.run("提交所选文件", () => commitWorkspaceFiles(directory, title, body, files)));
   ipcMain.handle("repository:fetch", (_, directory) =>
-    fetchRepository(directory),
+    gitOperation.run("更新远程引用", () => fetchRepository(directory)),
   );
   ipcMain.handle(
     "repository:prepare-merge",
-    async (_, { directory, target, sources, resolveBranch, options }) => {
-      if (merging) throw new Error("正在合并，请等待当前操作结束");
+    (_, { directory, target, sources, resolveBranch, options }) => gitOperation.run("准备合并", async () => {
       mergePlan = await prepareMerge(
         directory,
         target,
@@ -100,45 +133,34 @@ if (primaryInstance) app.whenReady().then(() => {
         options || {},
       );
       return mergePlan;
-    },
+    }),
   );
-  ipcMain.handle("repository:check-merge", async (_, planId) => {
-    if (merging || !mergePlan || mergePlan.id !== planId)
+  ipcMain.handle("repository:check-merge", (_, planId) => gitOperation.run("检查冲突", async () => {
+    if (!mergePlan || mergePlan.id !== planId)
       throw new Error("检查清单已失效，请重新检查");
     const plan = mergePlan;
-    merging = true;
-    try {
-      const result = await checkMerge(plan);
-      plan.preflight = result;
-      return result;
-    } finally {
-      merging = false;
-    }
-  });
-  ipcMain.handle("repository:execute-merge", async (_, planId, confirmed = false) => {
-    if (merging || !mergePlan || mergePlan.id !== planId)
+    const result = await checkMerge(plan);
+    plan.preflight = result;
+    return result;
+  }));
+  ipcMain.handle("repository:execute-merge", (_, planId, confirmed = false) => gitOperation.run("执行合并", async () => {
+    if (!mergePlan || mergePlan.id !== planId)
       throw new Error("合并清单已失效，请重新预览");
     const plan = mergePlan;
     if (!plan.preflight) throw new Error("请先检查冲突");
     if (plan.preflight.status === "conflict" && confirmed !== true)
       throw new Error("发现冲突，请确认后再创建 resolve 分支");
     mergePlan = null;
-    merging = true;
-    try {
-      return await executeMerge(plan, {
-        resolveConflicts: plan.preflight.status === "conflict",
-        directSource: plan.preflight.status === "clean" && plan.sources.length === 1,
-        integrateFirst: true,
-      });
-    } finally {
-      merging = false;
-    }
-  });
-  ipcMain.handle("repository:push", async (_, { directory, branch, remote, checkedSource }) => {
-    if (merging) throw new Error("正在合并，请等待当前操作结束");
-    return pushBranch(directory, branch, remote, checkedSource);
-  });
-  // 冲突解决：这些操作本身就在合并中间态里进行，不受 merging 锁限制
+    return executeMerge(plan, {
+      resolveConflicts: plan.preflight.status === "conflict",
+      directSource: plan.preflight.status === "clean" && plan.sources.length === 1,
+      integrateFirst: true,
+    });
+  }));
+  ipcMain.handle("repository:push", (_, { directory, branch, remote, checkedSource }) =>
+    gitOperation.run("推送分支", () => pushBranch(directory, branch, remote, checkedSource)),
+  );
+  // 冲突会话可以继续处理，但每次写操作仍需互斥。
   ipcMain.handle("repository:merge-state", (_, directory) =>
     readMergeState(directory),
   );
@@ -165,19 +187,19 @@ if (primaryInstance) app.whenReady().then(() => {
   ipcMain.handle(
     "repository:conflict-resolve",
     (_, { directory, file, content }) =>
-      resolveConflictFile(directory, file, content),
+      gitOperation.run("保存冲突文件", () => resolveConflictFile(directory, file, content)),
   );
   ipcMain.handle("repository:conflict-side", (_, { directory, file, side }) =>
-    takeConflictSide(directory, file, side),
+    gitOperation.run("采用冲突版本", () => takeConflictSide(directory, file, side)),
   );
   ipcMain.handle("repository:conflict-union", (_, { directory, file }) =>
-    unionConflictFile(directory, file),
+    gitOperation.run("组合冲突内容", () => unionConflictFile(directory, file)),
   );
   ipcMain.handle("repository:conflict-commit", (_, { directory, message }) =>
-    commitResolution(directory, message),
+    gitOperation.run("提交冲突解决", () => commitResolution(directory, message)),
   );
   ipcMain.handle("repository:conflict-abort", (_, { directory, returnTo }) =>
-    abortMerge(directory, returnTo),
+    gitOperation.run("放弃合并", () => abortMerge(directory, returnTo)),
   );
   // 受保护目标分支：生成预填好的 MR / PR 创建页链接（GitLab / GitHub）
   // 自建 GitLab 的域名不一定含 gitlab，能匹配到设置里的域名就用它声明的平台类型
@@ -220,27 +242,13 @@ if (primaryInstance) app.whenReady().then(() => {
   ipcMain.handle("hosts:test", (_, payload) => testHost(payload || {}));
   ipcMain.handle(
     "repository:continue-merge",
-    async (_, { directory, branch, sources }) => {
-      if (merging) throw new Error("正在合并，请等待当前操作结束");
-      merging = true;
-      try {
-        return await continueMerge(directory, branch, sources);
-      } finally {
-        merging = false;
-      }
-    },
+    (_, { directory, branch, sources }) =>
+      gitOperation.run("继续合并", () => continueMerge(directory, branch, sources)),
   );
   ipcMain.handle(
     "repository:finalize-merge",
-    async (_, { directory, targetLocal, from }) => {
-      if (merging) throw new Error("正在合并，请等待当前操作结束");
-      merging = true;
-      try {
-        return await finalizeMerge(directory, targetLocal, from);
-      } finally {
-        merging = false;
-      }
-    },
+    (_, { directory, targetLocal, from }) =>
+      gitOperation.run("完成合并", () => finalizeMerge(directory, targetLocal, from)),
   );
   ipcMain.handle("data:read", async () => {
     try {
