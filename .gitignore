@@ -4,6 +4,7 @@ dist-electron/
 release/
 *.log
 .vscode/
+.idea/
 
 # 测试临时产物与截图
 .tmp/
