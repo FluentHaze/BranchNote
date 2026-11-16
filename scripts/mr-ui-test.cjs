@@ -4,6 +4,7 @@ const path = require("node:path");
 const fs = require("node:fs");
 const assert = require("node:assert/strict");
 const root = path.join(__dirname, "..");
+fs.mkdirSync(path.join(root,"docs/e2e"),{recursive:true});
 if (process.type === "renderer") {
   const stamp = new Date().toISOString();
   let data = {
@@ -24,6 +25,7 @@ if (process.type === "renderer") {
   contextBridge.exposeInMainWorld("branchNote", {
     read:async()=>JSON.stringify(data), write:async raw=>{data=JSON.parse(raw);},
     subscribeTrayAction:()=>()=>{},
+    readWorkspace:async()=>({path:"/fixture",files:[]}),
     subscribeGitOperation:()=>()=>{}, getGitOperation:async()=>null,
     subscribeUpdate:()=>()=>{}, getUpdate:async()=>({status:"manual"}),
     requestProvider:async()=>"gitlab", readRepository:async()=>repo, readRepositoryStatus:async()=>({head:"branch",branch:"main",commit:"fixture",upstream:"origin/main",ahead:0,behind:0,clean:true,staged:false,unstaged:false,untracked:false,conflicts:false,operations:[]}), mergeState:async()=>({session:null, unmerged:[]}),
@@ -81,9 +83,9 @@ if (process.type === "renderer") {
       await waitFor("!document.querySelector('dialog[open]')");
       console.log("合并请求目标弹窗远程分支更新通过");
 
-      await clickText("设置与令牌v0.2.0");
-      await waitFor("!!document.querySelector('[aria-label=\"合并请求自动刷新周期\"]')");
-      await evaluate("document.querySelector('[aria-label=\"合并请求自动刷新周期\"]').click()");
+      await evaluate("Array.from(document.querySelectorAll('button')).find(b=>b.textContent.trim().startsWith('设置与令牌')).click()");
+      await waitFor("!!document.querySelector('[aria-label=\"合并请求 自动刷新周期\"]')");
+      await evaluate("document.querySelector('[aria-label=\"合并请求 自动刷新周期\"]').click()");
       assert.equal(await evaluate("getComputedStyle(document.querySelector('.select-menu:popover-open')).borderRadius"),"14px");
       assert.equal(await evaluate("getComputedStyle(document.querySelector('.select-menu:popover-open [role=option]')).borderRadius"),"8px");
       assert.equal(await evaluate("document.querySelectorAll('.select-menu:popover-open [role=option]').length"),6);
@@ -91,7 +93,7 @@ if (process.type === "renderer") {
       fs.writeFileSync(path.join(root,"docs/e2e/refresh-settings.png"),(await win.webContents.capturePage()).toPNG());
 
       await evaluate("Array.from(document.querySelectorAll('.select-menu:popover-open [role=option]')).find(option=>option.textContent.includes('5 分钟')).click()");
-      await waitFor("(document.querySelector('[aria-label=\"合并请求自动刷新周期\"]').textContent.includes('5 分钟'))");
+      await waitFor("(document.querySelector('[aria-label=\"合并请求 自动刷新周期\"]').textContent.includes('5 分钟'))");
       assert.equal((await evaluate("window.branchNote.inspect()")).data.mrRefreshSeconds,300);
       await evaluate("window.originalInterval=window.setInterval;window.intervalValues=[];window.setInterval=(handler,delay,...args)=>{window.intervalValues.push(delay);return window.originalInterval(handler,delay,...args);};document.querySelector('.sidebar nav .nav-item').click()");
       await waitFor("!!document.querySelector('table')");
@@ -104,9 +106,9 @@ if (process.type === "renderer") {
       assert.equal(await evaluate("document.fonts.check('400 14px \"BranchNote Sans\"', '测试项目')"),true);
       assert.equal(await evaluate("document.fonts.check('400 12px \"BranchNote Mono\"', 'feature/test')"),true);
       assert.equal(await evaluate("document.querySelectorAll('.branch-change-note').length"),3);
-      await evaluate("document.querySelector('tbody .feature-title').click()");
+      await evaluate("document.querySelector('tbody input[type=checkbox]').click()");
       assert.equal(await evaluate("document.querySelector('tbody input').checked"),true);
-      await evaluate("document.querySelector('tbody .feature-title').click()");
+      await evaluate("document.querySelector('tbody input[type=checkbox]').click()");
       assert.equal(await evaluate("document.querySelector('tbody input').checked"),false);
       await evaluate("document.fonts.ready");
       await new Promise(r=>setTimeout(r,250));
@@ -145,7 +147,7 @@ if (process.type === "renderer") {
 
       await evaluate("document.querySelector('dialog .modal-head button').click()");
       await clickText("编辑项目");
-      await waitFor("!!document.querySelector('dialog input[name=name]')");
+      await waitFor("!!document.querySelector('dialog .project-editor-form')");
       await new Promise(r=>setTimeout(r,250));
       fs.writeFileSync(path.join(root,"docs/e2e/project-editor.png"),(await win.webContents.capturePage()).toPNG());
       await evaluate("document.querySelector('dialog .modal-head button').click()");
@@ -338,7 +340,8 @@ if (process.type === "renderer") {
       await clickText("刷新 MR");
       await waitFor("document.querySelector('tbody').textContent.includes('MR 已关闭')");
       assert.equal((await evaluate("window.branchNote.inspect()")).data.branches[0].testMR.state,"closed");
-      await evaluate("window.branchNote.setMRState('opened');window.dispatchEvent(new Event('focus'))");
+      await evaluate("window.branchNote.setMRState('opened')");
+      await clickText("刷新 MR");
       await waitFor("document.querySelector('tbody').textContent.includes('MR 待合并')");
       await evaluate("window.branchNote.setMRState('merged')");
       await clickText("刷新 MR");

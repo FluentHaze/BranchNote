@@ -1,6 +1,6 @@
 {
   "name": "branchnote",
-  "version": "0.2.5",
+  "version": "0.2.6",
   "private": true,
   "description": "离线分支发布记录工具",
   "author": "BranchNote",
