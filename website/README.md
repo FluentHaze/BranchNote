@@ -6,7 +6,7 @@
 
 ## 用户资源
 
-- `v0.2.5` 下载链接指向 GitHub Releases，明确区分 Apple Silicon 和 Intel；Windows 安装包未提供时保持禁用并展示说明。
+- 下载链接指向 GitHub Releases，明确区分 Apple Silicon 和 Intel；同时提供 Windows 安装版与便携版。
 - 支持 Client Hints 的浏览器通过 architecture 识别 Apple Silicon / Intel，仅高亮对应架构；Safari 等未提供信息或拒绝请求时不猜测，两种架构仍可手动下载。识别在本机完成，不上传设备信息。
 - `/workflow/` 为详细 Git 指南，正文复用项目 `docs/git-workflow.md`。
 - `/workflow/git-flow.html` 是 Archify 生成的独立交互图，支持主题切换和导出。目前图与详细指南为简体中文，其他语言页面明确标注。
@@ -50,3 +50,5 @@ pnpm run preview
 `/BranchNote/sitemap.xml` 随构建生成，使用 Astro 的 `site` 和部署 `base` 生成绝对地址，收录五个本地化首页与 `/workflow/` 指南。各首页条目包含五语言及指向简体中文首页的 `x-default` 替代链接；不重复收录根首页，也不收录独立交互图，不填未经核实的更新时间。
 
 `public/robots.txt` 公开允许抓取并声明当前 sitemap 地址。GitHub Pages 项目站将它部署在 `/BranchNote/robots.txt`，该文件不能替代搜索引擎按协议读取的主机根目录 `/robots.txt`；不要据此宣称已控制整个 `fluenthaze.github.io` 的抓取策略。可将 sitemap 的完整公开地址提交到搜索引擎站长工具。更换公开域名或项目路径时，更新 `SITE_URL`、`SITE_BASE_PATH`，同时同步 `robots.txt` 中的 sitemap 地址。
+
+官网部署读取 GitHub latest 正式版，下载按钮、版本文案与 SEO 共用该版本；Release published 自动触发 Pages。本地默认版本位于 `src/lib/release.ts`，可用 `PUBLIC_RELEASE_VERSION` 覆盖。

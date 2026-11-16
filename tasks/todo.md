@@ -133,3 +133,11 @@
 - Windows 与 macOS 双架构使用官方 Electron45.2.3，下载资源 SHA256 已与官方清单核验。绕过本机损坏 DNS 使用官方 IP，不修改系统设置。Windows 打包进行中；待上传后核验附件 digest 与 latest。
 
 - Review 完成：v0.2.6 已公开并设为 latest；14 个附件 size/digest 与本地产物一致。Windows Setup/portable、Mac arm64/x64 DMG/ZIP 及更新清单均已发布。源码与标签已推送；Windows真机安装与跨版本升级、Apple公证仍未执行。
+
+# 官网最新下载入口修复（2026-11-16）
+- [ ] 统一官网发行版本，修复下载及 SEO 旧版本
+- [ ] 发布正式 Release 时触发部署，每次构建读取 latest
+- [ ] 构建、核对全部下载资产，部署后验证线上五语言
+
+## Review
+待验证。

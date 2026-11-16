@@ -1,5 +1,6 @@
 ---
 import { languageNames, languagePath, locales, withBase, type Copy, type Locale } from "../i18n";
+import { releaseVersion, releaseUrl } from "../lib/release";
 import SeoHead from "../components/seo/SeoHead.astro";
 import Header from "../components/Header.astro";
 import "../styles/base.css";
@@ -24,9 +25,9 @@ const structuredData = {
     },
     {
       "@type": "SoftwareApplication", "@id": home + "#application", name: "BranchNote",
-      applicationCategory: "DeveloperApplication", operatingSystem: "macOS", softwareVersion: "0.2.5",
+      applicationCategory: "DeveloperApplication", operatingSystem: "macOS", softwareVersion: releaseVersion,
       description: c.seo.description, url: canonical.href,
-      downloadUrl: "https://github.com/FluentHaze/BranchNote/releases/tag/v0.2.5",
+      downloadUrl: releaseUrl,
       image: new URL(withBase("social/branchnote.png"), Astro.site).href,
     },
   ],

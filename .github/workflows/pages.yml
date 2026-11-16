@@ -7,6 +7,8 @@ on:
       - "website/**"
       - "docs/git-workflow.md"
       - ".github/workflows/pages.yml"
+  release:
+    types: [published]
   workflow_dispatch:
 
 permissions:
@@ -35,6 +37,13 @@ jobs:
       - uses: actions/configure-pages@v5
       - name: Install website dependencies
         run: pnpm --dir website install --frozen-lockfile
+      - name: Read latest published release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag=$(gh api repos/${{ github.repository }}/releases/latest --jq .tag_name)
+          [[ "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || exit 1
+          echo "PUBLIC_RELEASE_VERSION=${tag#v}" >> "$GITHUB_ENV"
       - name: Check and build website
         run: pnpm --dir website run build
         env:

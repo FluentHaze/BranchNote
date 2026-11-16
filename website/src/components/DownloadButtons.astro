@@ -3,12 +3,12 @@ import { Cpu, LaptopMinimal, Monitor, Download, CircleHelp, ShieldCheck, Chevron
 import type { Copy } from "../i18n";
 interface Props { copy: Copy; }
 const { copy: c } = Astro.props;
-const release = "https://github.com/FluentHaze/BranchNote/releases/download/v0.2.5";
+import { releaseVersion, releaseTag, releaseUrl, downloadUrl as release } from "../lib/release";
 const helpGroup = crypto.randomUUID();
 const packages = [
-  { platform: "macos", arch: "arm64", label: c.downloads.macArm, file: "BranchNote-0.2.5-mac-arm64.dmg", Icon: Cpu },
-  { platform: "macos", arch: "x64", label: c.downloads.macIntel, file: "BranchNote-0.2.5-mac-x64.dmg", Icon: LaptopMinimal },
-  { platform: "windows", arch: "x64", label: c.downloads.win, file: "BranchNote-Setup-0.2.5-x64.exe", Icon: Monitor },
+  { platform: "macos", arch: "arm64", label: c.downloads.macArm, file: `BranchNote-${releaseVersion}-mac-arm64.dmg`, Icon: Cpu },
+  { platform: "macos", arch: "x64", label: c.downloads.macIntel, file: `BranchNote-${releaseVersion}-mac-x64.dmg`, Icon: LaptopMinimal },
+  { platform: "windows", arch: "x64", label: c.downloads.win, file: `BranchNote-Setup-${releaseVersion}-x64.exe`, Icon: Monitor },
 ];
 ---
 
@@ -27,8 +27,8 @@ const packages = [
   ))}
 </div>
 <p class="smallnote">
-  v0.2.5 · {c.downloads.hint} ·
-  <a class="release-link" href="https://github.com/FluentHaze/BranchNote/releases/tag/v0.2.5" target="_blank" rel="noopener noreferrer">{c.downloads.releaseNotes}</a>
+  {releaseTag} · {c.downloads.hint} ·
+  <a class="release-link" href={releaseUrl} target="_blank" rel="noopener noreferrer">{c.downloads.releaseNotes}</a>
 </p>
 <div class="download-support">
   <details class="download-help" name={helpGroup}>
@@ -41,13 +41,13 @@ const packages = [
       <p>{c.downloads.formatsHelp}</p>
       <ul>
         <li>
-          <a href={`${release}/BranchNote-0.2.5-win-x64.exe`}>{c.downloads.portable}</a>
+          <a href={`${release}/BranchNote-${releaseVersion}-win-x64.exe`}>{c.downloads.portable}</a>
         </li>
         <li>
-          <a href={`${release}/BranchNote-0.2.5-mac-arm64.zip`}>macOS · Apple Silicon · ZIP</a>
+          <a href={`${release}/BranchNote-${releaseVersion}-mac-arm64.zip`}>macOS · Apple Silicon · ZIP</a>
         </li>
         <li>
-          <a href={`${release}/BranchNote-0.2.5-mac-x64.zip`}>macOS · Intel · ZIP</a>
+          <a href={`${release}/BranchNote-${releaseVersion}-mac-x64.zip`}>macOS · Intel · ZIP</a>
         </li>
       </ul>
     </div>
