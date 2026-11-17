@@ -2141,20 +2141,39 @@ textarea,
 .sidebar-bottom .update-notice {
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
-  gap: 6px;
+  align-items: stretch;
+  gap: 9px;
   width: 100%;
   padding: 12px;
   margin-bottom: 10px;
-  color: var(--accent);
-  background: var(--accent-soft);
+  border: 1px solid color-mix(in srgb, var(--accent) 40%, var(--line));
+  border-radius: 12px;
+  color: var(--ink);
+  background: color-mix(in srgb, var(--accent) 10%, var(--sidebar));
   text-align: left;
   white-space: normal;
   overflow-wrap: anywhere;
 }
-.update-notice span { font-size: 12px; line-height: 1.5; }
-.update-notice progress { width: 100%; accent-color: var(--accent); }
-.update-notice { border: 1px solid var(--line); border-radius: var(--radius-control); }
+.update-notice strong { font-size: 12px; line-height: 1.5; font-weight: 600; }
+.update-notice span { color: var(--muted); font-size: 12px; line-height: 1.5; }
+.update-notice progress { width: 100%; height: 5px; accent-color: var(--accent); }
+.sidebar-bottom .update-notice button {
+  width: 100%;
+  min-height: 30px;
+  padding: 5px 8px;
+  border-radius: 7px;
+  color: var(--surface);
+  background: var(--accent);
+  font-size: 12px;
+  font-weight: 600;
+}
+.sidebar-bottom .update-notice button:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--accent) 90%, var(--ink));
+}
+.sidebar-bottom .update-notice button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
 
 /* 键盘定位采用控件自身的底色和细边框，不扩张外轮廓。 */
 button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-visible {
