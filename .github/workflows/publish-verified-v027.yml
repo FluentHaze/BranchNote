@@ -1,0 +1,161 @@
+name: Publish verified BranchNote v0.2.7
+on:
+  push:
+    branches: [release/branchnote-v0.2.7-publish]
+    paths: ['.github/workflows/publish-verified-v027.yml']
+permissions: {}
+concurrency:
+  group: branchnote-v027-release
+  cancel-in-progress: false
+jobs:
+  release:
+    if: github.repository == 'FluentHaze/BranchNote' && github.ref == 'refs/heads/release/branchnote-v0.2.7-publish'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      actions: read
+      contents: write
+    steps:
+      - name: Verify archives, stage, publish and verify public downloads
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          base=672eb15ef2b541ef206de46184e3fed1bc971e06
+          source=155d3439e85eb1f123be9d878b9d004d3a443ca1
+          run=45609937278
+          candidate=b2d69bed4bc2ff761f3becd91c0958fee03bbf0a
+          tag=v0.2.7
+          api="repos/$GITHUB_REPOSITORY"
+          [[ "$(gh api "$api/git/ref/heads/main" --jq .object.sha)" == "$base" ]]
+          [[ "$(gh api "$api/git/ref/heads/release/branchnote-v0.2.7-source" --jq .object.sha)" == "$source" ]]
+          [[ "$(gh api "$api/compare/$base...$source" --jq '[.files[].filename] | sort | join(",")')" == 'package-lock.json,package.json' ]]
+          [[ "$(gh api "$api/releases/latest" --jq .tag_name)" == v0.2.6 ]]
+          gh api "$api/actions/runs/$run" | jq -e --arg candidate "$candidate" '.conclusion == "success" and .head_sha == $candidate'
+          gh api "$api/actions/runs/$run/artifacts" > archive-list.json
+          download() {
+            local platform="$1" id="$2" sha="$3" name="branchnote-v0.2.7-$1-validation-only"
+            jq -e --argjson id "$id" --arg name "$name" --arg sha "sha256:$sha" --arg candidate "$candidate" \
+              '.artifacts[] | select(.id == $id and .name == $name and .digest == $sha and .expired == false and .workflow_run.head_sha == $candidate)' archive-list.json >/dev/null
+            gh api "$api/actions/artifacts/$id/zip" > "$platform.zip"
+            printf '%s  %s.zip\n' "$sha" "$platform" | sha256sum --check
+          }
+          download win 15019464377 9d68cd28f983a63b5f9c876b8a00bd142279f6732a2414445e98a64bd10c92da
+          download mac 15019108925 da756a25f8621d3e0a08ed7c896f9484106cbfcee0cf591e572d67f7a3a926a3
+          python3 - <<'PY'
+          import base64
+          import hashlib
+          import json
+          import pathlib
+          import shutil
+          import subprocess
+          import zipfile
+          
+          version = "0.2.7"
+          def require(ok, message):
+              if not ok:
+                  raise SystemExit(message)
+          
+          def digest(path, alg, b64=False):
+              with path.open("rb") as stream:
+                  value = hashlib.file_digest(stream, alg)
+              return base64.b64encode(value.digest()).decode("ascii") if b64 else value.hexdigest()
+          
+          out = pathlib.Path("publish-assets")
+          out.mkdir()
+          mac_bins = {f"BranchNote-{version}-mac-{arch}.{ext}" for arch in ("arm64", "x64") for ext in ("dmg", "zip")}
+          setup = f"BranchNote-Setup-{version}-x64.exe"
+          win_bin = f"BranchNote-{version}-win-x64.exe"
+          win = {win_bin, setup, setup + ".blockmap", "latest.yml"}
+          mac = mac_bins | {name + ".blockmap" for name in mac_bins} | {"latest-mac.yml"}
+          for platform, expected in (("mac", mac), ("win", win)):
+              with zipfile.ZipFile(platform + ".zip") as archive:
+                  entries = [item for item in archive.infolist() if not item.is_dir() and "/" not in item.filename]
+                  names = [item.filename for item in entries if item.filename in expected]
+                  require(len(names) == len(expected) and set(names) == expected,
+                      f"{platform} artifact mismatch. Expected: {sorted(expected)}. Found: {[item.filename for item in entries]}")
+                  for name in names:
+                      with archive.open(name) as src, (out / name).open("xb") as dst:
+                          shutil.copyfileobj(src, dst)
+                      require((out / name).stat().st_size > 0, f"Empty release asset {name}")
+          
+          for manifest, expected, canonical in (("latest.yml", {setup}, {setup}), ("latest-mac.yml", mac_bins, {n for n in mac_bins if n.endswith(".zip")})):
+              doc = json.loads(subprocess.check_output(["ruby", "-ryaml", "-rjson", "-rdate", "-e",
+                  'puts JSON.generate(YAML.safe_load_file(ARGV.fetch(0), permitted_classes: [Time, Date]))', str(out / manifest)], text=True))
+              require(doc.get("version") == version, f"{manifest}: unexpected version")
+              rows = doc["files"]
+              require(len(rows) == len(expected) and {row.get("url") for row in rows} == expected, f"{manifest}: manifest contains unexpected targets: {rows}")
+              for row in rows:
+                  asset = out / row["url"]
+                  require(asset.stat().st_size == row.get("size"), f"{manifest}: size mismatch {asset.name}")
+                  require(digest(asset, "sha512", True) == row.get("sha512"), f"{manifest}: SHA-512 mismatch {asset.name}")
+              path = doc.get("path")
+              require(path in canonical and digest(out / path, "sha512", True) == doc.get("sha512"), f"{manifest}: top-level SHA-512/path mismatch")
+          
+          checksum_name = f"SHA256SUMS-v{version}.txt"
+          (out / checksum_name).write_text("".join(f"{digest(out / name, 'sha256')}  {name}\n" for name in sorted(win | mac)))
+          expected = {file.name: {"size": file.stat().st_size, "digest": "sha256:" + digest(file, "sha256")} for file in out.iterdir()}
+          pathlib.Path("expected-assets.json").write_text(json.dumps(expected, indent=2) + "\n")
+          print(f"Verified {len(expected)} assets against original archives and updater manifests.")
+          PY
+          if gh api "$api/releases/tags/$tag" >/dev/null 2>release-exists.err; then
+            echo 'Release already exists; refusing to alter it.' >&2
+            exit 1
+          elif ! grep -q 'HTTP 404' release-exists.err; then
+            cat release-exists.err >&2
+            exit 1
+          fi
+          if gh api "$api/git/ref/tags/$tag" >/dev/null 2>tag-exists.err; then
+            echo 'Tag already exists; refusing to alter it.' >&2
+            exit 1
+          elif ! grep -q 'HTTP 404' tag-exists.err; then
+            cat tag-exists.err >&2
+            exit 1
+          fi
+          gh api "$api/releases" -f tag_name="$tag" -f target_commitish="$source" -f name="BranchNote $tag" \
+            -f body=$'## 本次更新\n\n- 优化侧栏的版本更新卡片，让版本提示、下载进度与「重启并安装」更易辨认，并加强键盘操作时的焦点提示。\n\nWindows 安装版与 Apple Silicon Mac 已验证从 v0.2.6 应用内升级，项目和设置保留。Intel Mac 安装包已校验，未实测启动。\n\nmacOS 安装包使用本地签名，未经过 Apple 公证。Windows 便携版需手动下载更新。' \
+            -F draft=true -F prerelease=false > draft.json
+          id="$(jq -er '.id' draft.json)"
+          echo "Created verified-candidate draft ID $id."
+          gh release upload "$tag" publish-assets/* --repo "$GITHUB_REPOSITORY"
+          gh api "$api/releases/$id" > staged.json
+          verify_assets() {
+            jq -e --slurpfile expected expected-assets.json \
+              '(.assets | all(.state == "uploaded")) and
+               ([.assets[] | {key: .name, value: {size: .size, digest: .digest}}] | from_entries) == $expected[0]' "$1" >/dev/null
+          }
+          verify_assets staged.json
+          jq -e --arg tag "$tag" --arg source "$source" '.draft == true and .prerelease == false and .tag_name == $tag and .target_commitish == $source' staged.json
+          [[ "$(gh api "$api/releases/latest" --jq .tag_name)" == v0.2.6 ]]
+          gh api -X PATCH "$api/releases/$id" -F draft=false -f make_latest=true > published.json
+          verify_assets published.json
+          jq -e --arg tag "$tag" '.draft == false and .prerelease == false and .tag_name == $tag' published.json
+          [[ "$(gh api "$api/git/ref/tags/$tag" --jq .object.sha)" == "$source" ]]
+          for i in $(seq 1 12); do
+            if curl -fsS --max-time 10 "https://api.github.com/$api/releases/latest" -o public.json &&
+              jq -e --arg tag "$tag" '.tag_name == $tag and .draft == false and .prerelease == false' public.json >/dev/null; then
+              break
+            fi
+            sleep 5
+          done
+          jq -e --arg tag "$tag" '.tag_name == $tag and .draft == false and .prerelease == false' public.json
+          verify_assets public.json
+          while IFS=$'\t' read -r name url; do
+            case "$name" in
+              *.yml|SHA256SUMS-*) curl -fsSL --retry 3 --max-time 30 "$url" -o public-download && cmp "publish-assets/$name" public-download ;;
+              *.exe|*.dmg|*.zip) curl -fsSL --retry 3 --max-time 30 --range 0-0 --max-filesize 1024 "$url" -o public-download
+                                [[ "$(wc -c < public-download)" == 1 ]]
+                                cmp -n 1 "publish-assets/$name" public-download ;;
+            esac
+          done < <(jq -r '.assets[] | [.name, .browser_download_url] | @tsv' public.json)
+          echo "Verified public latest release, source tag, 14 asset digests, downloaded manifests, and all six public binary URLs."
+  pages:
+    needs: release
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+    steps:
+      - name: Trigger the existing public website pipeline on main
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run pages.yml --ref main --repo "$GITHUB_REPOSITORY"
