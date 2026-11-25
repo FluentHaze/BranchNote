@@ -2,7 +2,7 @@ name: BranchNote Windows in-app upgrade verification
 on:
   push:
     branches: [ci/branchnote-v0.2.7-verification]
-    paths: ['.github/workflows/in-app-upgrade-windows.yml']
+    paths: ['.github/workflows/in-app-upgrade-windows.yml', 'scripts/ci-win-in-app-upgrade.cjs']
 permissions:
   contents: read
   actions: read
