@@ -1,0 +1,72 @@
+name: BranchNote macOS in-app upgrade verification
+on:
+  push:
+    branches: [ci/branchnote-v0.2.7-verification]
+    paths: ['.github/workflows/in-app-upgrade-macos.yml']
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: branchnote-in-app-upgrade-macos-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  upgrade:
+    if: github.ref == 'refs/heads/ci/branchnote-v0.2.7-verification'
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-15
+            platform: mac
+            baseline_asset: BranchNote-0.2.6-mac-arm64.dmg
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 28
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Retrieve validated candidate bytes
+        uses: actions/download-artifact@v4
+        with:
+          name: branchnote-v0.2.7-${{ matrix.platform }}-validation-only
+          run-id: '45609937278'
+          github-token: ${{ github.token }}
+          path: ${{ runner.temp }}/candidate
+      - name: Retrieve and verify released baseline installer
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ASSET: ${{ matrix.baseline_asset }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/baseline-download"
+          gh release download v0.2.6 --repo "$GITHUB_REPOSITORY" --pattern "$ASSET" --dir "$RUNNER_TEMP/baseline-download"
+          digest="$(gh api "repos/$GITHUB_REPOSITORY/releases/tags/v0.2.6" --jq ".assets[] | select(.name == \"$ASSET\") | .digest")"
+          node -e 'const p=process.argv.slice(1);const h=require("node:crypto").createHash("sha256");const stream=require("node:fs").createReadStream(p[0]);stream.on("data",b=>h.update(b));stream.on("end",()=>{if("sha256:"+h.digest("hex")!==p[1]) process.exitCode=1;});' "$RUNNER_TEMP/baseline-download/$ASSET" "$digest"
+      - name: Obtain exact macOS baseline source for the transport fixture
+        if: matrix.platform == 'mac'
+        uses: actions/checkout@v4
+        with:
+          ref: f633c722f09f663d9adcb08ddadd8ca6a49bb732
+          path: baseline
+          persist-credentials: false
+      - name: Build exact macOS baseline source for the fixture
+        if: matrix.platform == 'mac'
+        working-directory: baseline
+        run: |
+          npm ci
+          npm run build
+      - name: macOS in-app upgrade with isolated discovery and download
+        if: matrix.platform == 'mac'
+        shell: bash
+        run: |
+          set -euo pipefail
+          export OLD_DMG="$RUNNER_TEMP/baseline-download/BranchNote-0.2.6-mac-arm64.dmg"
+          export NEW_DMG="$(find "$RUNNER_TEMP/candidate" -type f -name BranchNote-0.2.7-mac-arm64.dmg -print)"
+          export NEW_MANIFEST="$(find "$RUNNER_TEMP/candidate" -type f -name latest-mac.yml -print)"
+          export BASELINE_REPO="$GITHUB_WORKSPACE/baseline"
+          test -f "$OLD_DMG" && test -f "$NEW_DMG" && test -f "$NEW_MANIFEST"
+          node "$GITHUB_WORKSPACE/scripts/ci-mac-in-app-upgrade.cjs"
