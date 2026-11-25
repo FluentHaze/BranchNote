@@ -1,0 +1,58 @@
+name: BranchNote Windows in-app upgrade verification
+on:
+  push:
+    branches: [ci/branchnote-v0.2.7-verification]
+    paths: ['.github/workflows/in-app-upgrade-windows.yml']
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: branchnote-in-app-upgrade-windows-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  upgrade:
+    if: github.ref == 'refs/heads/ci/branchnote-v0.2.7-verification'
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: windows-2025
+            platform: win
+            baseline_asset: BranchNote-Setup-0.2.6-x64.exe
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 28
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Retrieve validated candidate bytes
+        uses: actions/download-artifact@v4
+        with:
+          name: branchnote-v0.2.7-${{ matrix.platform }}-validation-only
+          run-id: '45609937278'
+          github-token: ${{ github.token }}
+          path: ${{ runner.temp }}/candidate
+      - name: Retrieve and verify released baseline installer
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ASSET: ${{ matrix.baseline_asset }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/baseline-download"
+          gh release download v0.2.6 --repo "$GITHUB_REPOSITORY" --pattern "$ASSET" --dir "$RUNNER_TEMP/baseline-download"
+          digest="$(gh api "repos/$GITHUB_REPOSITORY/releases/tags/v0.2.6" --jq ".assets[] | select(.name == \"$ASSET\") | .digest")"
+          node -e 'const p=process.argv.slice(1);const h=require("node:crypto").createHash("sha256");const stream=require("node:fs").createReadStream(p[0]);stream.on("data",b=>h.update(b));stream.on("end",()=>{if("sha256:"+h.digest("hex")!==p[1]) process.exitCode=1;});' "$RUNNER_TEMP/baseline-download/$ASSET" "$digest"
+      - name: Windows in-app upgrade via isolated update source
+        if: matrix.platform == 'win'
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $env:OLD_EXE = Join-Path $env:RUNNER_TEMP 'baseline-download/BranchNote-Setup-0.2.6-x64.exe'
+          $matches = @(Get-ChildItem (Join-Path $env:RUNNER_TEMP 'candidate') -Recurse -File -Filter 'latest.yml')
+          if ($matches.Count -ne 1) { throw 'Expected exactly one Windows update manifest' }
+          $env:WIN_ASSETS = $matches[0].DirectoryName
+          node scripts/ci-win-in-app-upgrade.cjs
