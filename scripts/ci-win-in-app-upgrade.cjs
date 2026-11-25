@@ -29,10 +29,10 @@ async function until(label, action, timeout = 45000) {
   throw new Error(`${label} timed out`, { cause: lastError });
 }
 
-async function ps(script, params = {}) {
+async function ps(script, params = {}, timeout = 15000) {
   const { stdout } = await exec('powershell.exe',
     ['-NoProfile', '-NonInteractive', '-Command', script],
-    { env: { ...process.env, ...params }, timeout: 15000, windowsHide: true });
+    { env: { ...process.env, ...params }, timeout, windowsHide: true });
   return stdout.trim();
 }
 
@@ -88,7 +88,7 @@ async function openRenderer(exe) {
 }
 
 async function main() {
-  assert(windows && process.env.GITHUB_ACTIONS === 'true', 'Ephemeral Windows GitHub Actions only');
+  assert(windows && process.env.GITHUB_ACTIONS === 'true' && process.env.RUNNER_ENVIRONMENT === 'github-hosted', 'Ephemeral Windows GitHub Actions only');
   const { RUNNER_TEMP, OLD_EXE, WIN_ASSETS } = process.env;
   assert(RUNNER_TEMP && OLD_EXE && WIN_ASSETS);
   const install = join(RUNNER_TEMP, 'branchnote-in-app-update');
@@ -141,7 +141,7 @@ async function main() {
     await ps(`$ErrorActionPreference='Stop'
       $p=Start-Process -FilePath $env:QA_OLD -ArgumentList "/S /D=$env:QA_DEST" -Wait -PassThru
       if ($p.ExitCode -ne 0) { throw "Baseline installer exit code: $($p.ExitCode)" }`,
-      { QA_OLD: OLD_EXE, QA_DEST: install });
+      { QA_OLD: OLD_EXE, QA_DEST: install }, 120000);
     await ps(`$ErrorActionPreference='Stop'
       $v=(Get-Item -LiteralPath $env:QA_EXE).VersionInfo.ProductVersion
       if ($v -notin @('0.2.6','0.2.6.0')) { throw "Wrong baseline: $v" }`,
